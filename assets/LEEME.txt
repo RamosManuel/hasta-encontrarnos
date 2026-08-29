@@ -1,0 +1,30 @@
+ASSETS DEFINITIVOS (ya incluidos en esta carpeta, requeridos):
+
+- mesa.png    Escenario definitivo de la intro: la mesa antigua fotografiada,
+              con la vela ya encendida, libros, tintero, pluma y demás
+              objetos. Reemplaza por completo a la mesa/objetos que antes se
+              dibujaban con CSS (ver el bloque "DESACTIVADO" en styles.css).
+              Usada como fondo de .scene-backdrop.
+- sello.png   Sello de lacre definitivo (zorro y ardilla), con su propia
+              textura de cera, grietas y biselado ya incluidos en la imagen.
+              Reemplaza por completo al círculo de lacre dibujado con CSS y
+              a cualquier fallback de texto/letra (ya no existe ninguno).
+              Se usa tal cual, a pantalla completa del botón .seal.
+
+Estos dos son parte del diseño final: si faltaran, se rompe la escena (la
+mesa quedaría en negro sin mesa.png; el botón del sello quedaría vacío sin
+sello.png, sin fallback de texto).
+
+ASSETS OPCIONALES (el proyecto funciona igual sin ellos):
+
+- textura-papel.jpg  Textura sutil de papel/pergamino (tono claro), se usa
+                     tanto en el sobre como en la hoja de lectura.
+- sello.mp3          Sonido breve al romper el sello (opcional).
+- papel.mp3          Sonido breve al desplegarse la hoja (opcional).
+
+Si falta alguno de estos opcionales, el código lo detecta (onerror /
+promesas de audio) y sigue funcionando sin romperse.
+
+fondo.jpg ya NO se usa (quedó reemplazado por mesa.png): solo aparece
+mencionado dentro de un bloque de CSS comentado/desactivado, por si se
+quisiera comparar con la versión anterior.

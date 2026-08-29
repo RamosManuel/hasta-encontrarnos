@@ -1,0 +1,1698 @@
+/* ==========================================================================
+   RAINBOWLAND — Prólogo
+   Una carta antigua que se abre. Estados:
+   dark → lighting → desk → approaching → lifting →
+   sealed → breaking → opening → revealing → reading.
+
+   VERSIÓN DE PRUEBA: por ahora la secuencia corre solo hasta "approaching"
+   y se congela ahí (mesa oscura → se enciende la vela → se ve la mesa con
+   la carta apoyada → la cámara se acerca). Todo lo de "lifting" en adelante
+   sigue en el código, sin usarse todavía. Ver script.js para el control de
+   tiempos y para dónde se corta la secuencia.
+
+   El escenario (mesa, libros, vela, tintero, pluma, etc.) es ahora la foto
+   real assets/mesa.png — ya no hay objetos dibujados con CSS. Ver
+   .scene-backdrop y el bloque "DESACTIVADO" de .desk-scene más abajo.
+   ========================================================================== */
+   @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap');
+
+:root {
+  /* Paleta */
+  --bg-deep:      #0b0906;
+  --bg-deep-2:    #16110c;
+  --wood-dark:    #1c140f;
+  --paper-kraft-1:#d8c093;
+  --paper-kraft-2:#b28c5c;
+  --paper-kraft-3:#8a6a41;
+  --paper-cream:  #f2e6c8;
+  --paper-cream-2:#ece0bd;
+  --ink:          #2c2013;
+  --ink-soft:     #4a3a26;
+  --gold:         #c9a35e;
+  --gold-soft:    #ddc084;
+  --bordo:        #5c1420;
+  --bordo-deep:   #3c0c15;
+  --bordo-light:  #7a2130;
+
+  /* Tipografía */
+  --font-title: 'Cinzel', Georgia, 'Times New Roman', serif;
+  --font-subtitle: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'EB Garamond', Georgia, 'Times New Roman', serif;
+  /* Manuscrita/caligráfica antigua para la inscripción sobre assets/sobre.png:
+     delicada pero legible (no una caligrafía tan cargada de florituras que
+     dificulte leer "Para la Emperatriz Ardilla" en tamaños chicos). */
+  --font-hand: 'Petit Formal Script', 'Segoe Script', 'Brush Script MT', cursive;
+
+  /* Tiempos (referencia visual; el control real vive en script.js) */
+  --ease-soft: cubic-bezier(.22,.68,.18,1);
+  --ease-out: cubic-bezier(.16,.8,.28,1);
+  --ease-in-out: cubic-bezier(.65,0,.35,1);
+
+  /* ------------------------------------------------------------------
+   * PUNTOS DE REFERENCIA SOBRE assets/mesa.png (en % del viewport)
+   * ------------------------------------------------------------------
+   * --candle-x / --candle-y: dónde cae la llama de la vela YA ENCENDIDA
+   *   dentro de la foto. Es el punto desde el que "nace" la luz en el
+   *   estado "lighting" (ver #sceneReveal y .scene-light). script.js lee
+   *   estas mismas variables (getComputedStyle) para que el revelado por
+   *   JS y el resplandor por CSS apunten siempre al mismo lugar.
+   * --letter-x / --letter-y: el punto de la mesa donde descansa la carta
+   *   (zona de madera libre, centro-abajo de la imagen). Es el punto fijo
+   *   sobre el que hace zoom la "cámara" en el estado "approaching": todo
+   *   .scene-backdrop/.scene-light escala con transform-origin en este
+   *   punto, y .envelope-stage se traslada exactamente hasta él y solo
+   *   cambia de escala (nunca de posición), para que la carta quede
+   *   siempre anclada al mismo lugar de la mesa.
+   * Si en algún momento se recorta o reencuadra mesa.png, estos cuatro
+   * valores son los únicos que hace falta reajustar a mano. */
+  --candle-x: 19%;
+  --candle-y: 14%;
+  --letter-x: 50%;
+  --letter-y: 64%;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  overscroll-behavior-y: contain;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-deep);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
+  overflow-x: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+}
+
+/* ==========================================================================
+   ESCENA
+   ========================================================================== */
+
+.scene {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: opacity 900ms var(--ease-soft), visibility 0s linear 900ms;
+}
+
+/* ESCENARIO DEFINITIVO: la mesa real (assets/mesa.png), sin gradientes ni
+   filtros de "exposición" fotográfica — la ilusión de que se enciende la
+   vela ya NO se hace atenuando/aclarando esta imagen entera (eso sería el
+   opacity/brightness 0→1 que se pidió evitar). Esa ilusión la produce
+   #sceneReveal (máscara que se abre desde la vela) tapando este fondo,
+   que siempre está a su brillo real por debajo. */
+.scene-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: url('assets/mesa.png');
+  background-size: cover;
+  background-position: 50% 22%;
+  background-repeat: no-repeat;
+  transform-origin: var(--letter-x) var(--letter-y);
+  transform: scale(1);
+  /* --ease-in-out (curva simétrica, ni ease ni ease-out) para que el
+     acercamiento se sienta parejo a lo largo de los 2,5s completos, en vez
+     de "llegar" a los pocos cientos de milisegundos y quedarse quieto. */
+  
+  transition: transform 4000ms linear;
+}
+
+/* ==========================================================================
+   DESACTIVADO: viejo "fundido de exposición" (brightness/contrast animados)
+   que servía para revelar la imagen placeholder de fondo.jpg atenuándola
+   entera. Se conserva comentado por si hace falta comparar/recuperar.
+.scene-backdrop {
+  background:
+    radial-gradient(120% 90% at 50% 18%, #241a12 0%, #14100a 46%, #0a0806 100%),
+    linear-gradient(180deg, #0e0b08 0%, #0a0806 100%);
+  background-image:
+    radial-gradient(120% 90% at 50% 18%, #241a12 0%, #14100a 46%, #0a0806 100%),
+    url('assets/fondo.jpg');
+  background-size: cover, cover;
+  background-position: center, center;
+  background-blend-mode: normal, multiply;
+  filter: brightness(.32) contrast(.9);
+  transition: filter 1400ms ease;
+}
+
+body[data-state="lighting"] .scene-backdrop,
+body[data-state="desk"] .scene-backdrop,
+body[data-state="approaching"] .scene-backdrop,
+body[data-state="lifting"] .scene-backdrop,
+body[data-state="sealed"] .scene-backdrop {
+  filter: brightness(1) contrast(1.08);
+}
+========================================================================== */
+
+/* La "cámara" se acerca físicamente al punto de la mesa donde está la carta:
+   todo el escenario (foto completa) escala alrededor de ese punto, así que
+   los objetos periféricos (libros, vela, tintero, etc., ya horneados en la
+   foto) se corren hacia afuera del encuadre. */
+body[data-state="approaching"] .scene-backdrop,
+body[data-state="sealed"] .scene-backdrop,
+body[data-state="breaking"] .scene-backdrop,
+body[data-state="opening"] .scene-backdrop,
+body[data-state="revealing"] .scene-backdrop {
+  /* Sin esto, la mesa se alejaba de golpe (volvía a scale(1)) apenas se
+     llegaba a "sealed", porque no había ninguna regla que sostuviera el
+     acercamiento para esos estados. No afecta a "approaching" ni a los
+     tiempos/posición de la intro: solo evita un salto visual raro
+     mientras se prueba el circuito nuevo. */
+  transform: scale(4.25);
+}
+
+.scene-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: radial-gradient(60% 55% at 50% 46%, transparent 0%, transparent 45%, rgba(0,0,0,.55) 100%);
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   INTRO CINEMATOGRÁFICA (VERSIÓN DE PRUEBA)
+   dark → lighting → desk → approaching → (acá se congela por ahora)
+   ========================================================================== */
+
+/* Luz cálida ADITIVA (mix-blend-mode: screen suma luz de verdad, no solo
+   destapa algo). Refuerza, sobre la foto real, la sensación de que ESA vela
+   ya encendida es la que se acaba de prender: está centrada exactamente en
+   --candle-x/--candle-y, el mismo punto que usa la máscara de revelado
+   (#sceneReveal, ver más abajo y script.js). */
+.scene-light {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background:
+    radial-gradient(46% 40% at var(--candle-x) var(--candle-y), rgba(255,214,160,.92) 0%, rgba(255,178,96,.5) 34%, rgba(255,150,70,.14) 60%, rgba(255,140,60,0) 78%),
+    radial-gradient(70% 60% at var(--candle-x) var(--candle-y), rgba(255,190,120,.28) 0%, rgba(255,150,70,0) 70%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform-origin: var(--letter-x) var(--letter-y);
+  transform: scale(1);
+  
+  transition: opacity 1600ms ease, transform 4000ms linear;
+  pointer-events: none;
+}
+
+body[data-state="lighting"] .scene-light,
+body[data-state="desk"] .scene-light,
+body[data-state="approaching"] .scene-light {
+  opacity: 1;
+}
+
+/* La cámara se acerca: el resplandor de la vela viaja junto con el resto del
+   escenario (misma escala/origen que .scene-backdrop) para que no se sienta
+   como una capa aparte flotando sobre la foto. */
+body[data-state="approaching"] .scene-light {
+  transform: scale(4.25);
+}
+
+/* Máscara de revelado: pantalla casi negra que se abre progresivamente desde
+   el punto de la vela (--candle-x/--candle-y) hacia el resto de la mesa.
+   El degradado en sí lo pinta script.js frame a frame (con radial-gradient
+   en píxeles) durante el estado "lighting"; acá solo se define el estado de
+   reposo (negro sólido, cubriendo TODO: mesa y carta) y una red de
+   seguridad puramente en CSS que la oculta en cuanto se sale de
+   dark/lighting, por si el JS no llegara a tocarla (p. ej. con
+   MOSTRAR_INTRO_CINEMATICA en false). No es un simple opacity 0→1 de toda
+   la imagen: ver script.js → iniciarRevelacionDeLuz(). */
+.scene-reveal {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  background: #030201;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 260ms ease;
+}
+
+body[data-state="desk"] .scene-reveal,
+body[data-state="approaching"] .scene-reveal,
+body[data-state="lifting"] .scene-reveal,
+body[data-state="sealed"] .scene-reveal,
+body[data-state="breaking"] .scene-reveal,
+body[data-state="opening"] .scene-reveal,
+body[data-state="revealing"] .scene-reveal,
+body[data-state="reading"] .scene-reveal {
+  opacity: 0;
+}
+
+/* ==========================================================================
+   DESACTIVADO: viejo velo negro (.intro-veil) de fundido plano de opacidad,
+   y viejo .scene-light con posición fija en placeholders (30% 16% / 50% 40%)
+   pensados para el fondo dibujado con CSS. Se reemplazaron por #sceneReveal
+   (arriba) y por .scene-light ahora centrado en la vela real de la foto.
+   Se dejan comentados por si hace falta comparar o volver atrás.
+
+.intro-veil {
+  position: absolute;
+  inset: 0;
+  background: #030201;
+  opacity: 1;
+  transition: opacity 1100ms ease;
+  z-index: 10;
+  pointer-events: none;
+}
+
+body[data-state="lighting"] .intro-veil,
+body[data-state="desk"] .intro-veil,
+body[data-state="approaching"] .intro-veil,
+body[data-state="lifting"] .intro-veil,
+body[data-state="sealed"] .intro-veil,
+body[data-state="breaking"] .intro-veil,
+body[data-state="opening"] .intro-veil,
+body[data-state="revealing"] .intro-veil,
+body[data-state="reading"] .intro-veil {
+  opacity: 0;
+}
+
+.scene-light {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(46% 40% at 30% 16%, rgba(255,214,160,.92) 0%, rgba(255,178,96,.5) 34%, rgba(255,150,70,.14) 60%, rgba(255,140,60,0) 78%),
+    radial-gradient(70% 60% at 50% 40%, rgba(255,190,120,.28) 0%, rgba(255,150,70,0) 70%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform: scale(.4);
+  transition: opacity 900ms ease, transform 900ms ease;
+  z-index: 1;
+  pointer-events: none;
+}
+
+body[data-state="lighting"] .scene-light,
+body[data-state="desk"] .scene-light,
+body[data-state="approaching"] .scene-light,
+body[data-state="lifting"] .scene-light,
+body[data-state="sealed"] .scene-light {
+  opacity: 1;
+  transform: scale(1);
+}
+
+body[data-state="breaking"] .scene-light,
+body[data-state="opening"] .scene-light,
+body[data-state="revealing"] .scene-light,
+body[data-state="reading"] .scene-light {
+  opacity: .35;
+}
+========================================================================== */
+
+/* ==========================================================================
+   DESACTIVADO A PEDIDO: mesa y objetos dibujados enteramente con CSS
+   (gradientes/formas). El escenario definitivo es ahora la foto real
+   assets/mesa.png (ver .scene-backdrop más arriba), que ya incluye la mesa,
+   los libros, la pluma, el tintero, la vela y demás objetos. Se conserva
+   todo este bloque comentado, sin borrar, para poder recuperarlo si en el
+   futuro se quisiera volver a un escenario dibujado por código.
+
+   (comentario original) Mesa antigua con objetos de ambientación:
+   transform-origin queda fijado sobre el punto de la mesa donde está la
+   carta (ver .envelope-stage más abajo, que usa esa misma referencia): al
+   escalar en "approaching", la cámara "entra" hacia ese punto y todo lo
+   periférico sale progresivamente de cuadro.
+
+.desk-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  filter: blur(0px) brightness(1) contrast(1);
+  transform: scale(1);
+  transform-origin: 63% 60%;
+  transition: opacity 1100ms ease, transform 2500ms cubic-bezier(.33,.05,.16,1), filter 1300ms ease;
+  pointer-events: none;
+}
+
+body[data-state="lighting"] .desk-scene,
+body[data-state="desk"] .desk-scene,
+body[data-state="approaching"] .desk-scene,
+body[data-state="lifting"] .desk-scene,
+body[data-state="sealed"] .desk-scene {
+  opacity: 1;
+}
+
+   La mesa se ve nítida y completa en "desk": nada de desenfoque todavía.   
+
+   La cámara se acerca físicamente a la zona de la mesa donde está la carta.
+   Todo el conjunto (mesa + objetos) escala junto — los objetos periféricos
+   se corren hacia/fuera del borde de la pantalla. Sigue en foco: el
+   desenfoque de profundidad recién aparece al levantar la carta.   
+body[data-state="approaching"] .desk-scene,
+body[data-state="lifting"] .desk-scene,
+body[data-state="sealed"] .desk-scene {
+  transform: scale(2.3);
+}
+
+   Profundidad de campo: la mesa recién se desenfoca y oscurece cuando la
+   carta ya se está despegando de ella, no antes.   
+body[data-state="lifting"] .desk-scene {
+  filter: blur(4px) brightness(.6) contrast(.95);
+}
+
+body[data-state="sealed"] .desk-scene {
+  filter: blur(8px) brightness(.4) contrast(.9);
+}
+
+body[data-state="breaking"] .desk-scene,
+body[data-state="opening"] .desk-scene,
+body[data-state="revealing"] .desk-scene,
+body[data-state="reading"] .desk-scene {
+  opacity: 0;
+}
+
+   Superficie de la mesa: tabla de madera con vetas, bien reconocible como
+   mesa (no solo un fondo oscuro ambiental).   
+.desk-surface {
+  position: absolute;
+  left: -12%;
+  right: -12%;
+  top: 8%;
+  bottom: -10%;
+  border-radius: 4% / 3%;
+  background:
+    repeating-linear-gradient(96deg, #6b4a2b 0px, #7a5732 18px, #5c3f22 34px, #6f4c2a 52px),
+    linear-gradient(175deg, #7a5732 0%, #4f341b 100%);
+  background-blend-mode: overlay, normal;
+  box-shadow:
+    inset 0 46px 90px rgba(0,0,0,.55),
+    inset 0 -30px 70px rgba(0,0,0,.5),
+    0 -10px 40px rgba(0,0,0,.6);
+     El borde superior de la mesa se disuelve en la penumbra en vez de
+     cortar en una línea recta: parece que la madera "sale" de la sombra en
+     vez de ser un rectángulo pegado sobre el fondo.   
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.5) 10%, #000 22%);
+  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.5) 10%, #000 22%);
+}
+
+.desk-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: .4;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.3 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 200px 200px;
+}
+
+.desk-object {
+  position: absolute;
+  display: block;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 800ms var(--ease-soft), transform 800ms var(--ease-soft);
+  box-shadow: 0 6px 10px rgba(0,0,0,.45);
+}
+
+body[data-state="lighting"] .desk-object,
+body[data-state="desk"] .desk-object,
+body[data-state="approaching"] .desk-object,
+body[data-state="lifting"] .desk-object,
+body[data-state="sealed"] .desk-object {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+   Dos libros antiguos apilados, esquina inferior izquierda   
+.desk-object--book1 {
+  left: 8%;
+  bottom: 14%;
+  width: 26%;
+  height: 9%;
+  max-width: 120px;
+  max-height: 42px;
+  border-radius: 2px 5px 5px 2px;
+  background: linear-gradient(200deg, #6f2530 0%, #4a1620 70%, #3a0f18 100%);
+  transform: rotate(-7deg) translateY(8px);
+  transition-delay: 40ms;
+}
+body[data-state="lighting"] .desk-object--book1,
+body[data-state="desk"] .desk-object--book1,
+body[data-state="approaching"] .desk-object--book1,
+body[data-state="lifting"] .desk-object--book1,
+body[data-state="sealed"] .desk-object--book1 {
+  transform: rotate(-7deg) translateY(0);
+}
+
+.desk-object--book2 {
+  left: 6.5%;
+  bottom: 12.6%;
+  width: 29%;
+  height: 8%;
+  max-width: 132px;
+  max-height: 38px;
+  border-radius: 2px 5px 5px 2px;
+  background: linear-gradient(200deg, #7c6335 0%, #5a4322 70%, #40300f 100%);
+  transform: rotate(-3deg) translateY(8px);
+  transition-delay: 120ms;
+}
+body[data-state="lighting"] .desk-object--book2,
+body[data-state="desk"] .desk-object--book2,
+body[data-state="approaching"] .desk-object--book2,
+body[data-state="lifting"] .desk-object--book2,
+body[data-state="sealed"] .desk-object--book2 {
+  transform: rotate(-3deg) translateY(0);
+}
+
+   Pluma con tintero, sobre la mesa hacia la derecha   
+.desk-object--quill {
+  right: 9%;
+  top: 30%;
+  width: 30%;
+  max-width: 130px;
+  height: 14%;
+  box-shadow: none;
+  transition-delay: 200ms;
+}
+
+.quill-feather {
+  position: absolute;
+  right: 8%;
+  top: 0;
+  width: 3px;
+  height: 78%;
+  background: linear-gradient(200deg, #e8dcc0 0%, #b8a06c 100%);
+  border-radius: 2px;
+  transform-origin: bottom center;
+  transform: rotate(28deg);
+  box-shadow: 0 4px 8px rgba(0,0,0,.4);
+}
+.quill-feather::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: -2px;
+  width: 16px;
+  height: 34px;
+  background: linear-gradient(200deg, #e3d5ae 0%, #a98f57 100%);
+  border-radius: 60% 10% 60% 10%;
+  transform: rotate(-18deg);
+}
+
+.quill-inkwell {
+  position: absolute;
+  left: 4%;
+  bottom: 0;
+  width: 30%;
+  height: 46%;
+  min-width: 20px;
+  min-height: 16px;
+  border-radius: 40% 40% 50% 50%;
+  background: radial-gradient(120% 120% at 30% 20%, #2a2a2a 0%, #0d0d0d 70%);
+  box-shadow: 0 6px 10px rgba(0,0,0,.5), inset 0 2px 3px rgba(255,255,255,.08);
+}
+
+   Vela con llama sutil, sobre la mesa hacia la izquierda   
+.desk-object--candle {
+  left: 10%;
+  top: 27%;
+  width: 10%;
+  max-width: 44px;
+  height: 20%;
+  box-shadow: none;
+  transition-delay: 280ms;
+}
+.desk-object--candle::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 62%;
+  height: 78%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #efe3c8 0%, #d8c79a 100%);
+  border-radius: 2px 2px 1px 1px;
+  box-shadow: 0 8px 14px rgba(0,0,0,.5);
+}
+.candle-flame {
+  position: absolute;
+  left: 50%;
+  top: -10%;
+  width: 22%;
+  height: 26%;
+  min-width: 8px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle at 50% 65%, #fff3c4 0%, #ffb648 45%, rgba(255,120,20,0) 78%);
+  border-radius: 50% 50% 50% 50% / 65% 65% 35% 35%;
+  filter: drop-shadow(0 0 10px rgba(255,170,90,.7));
+  animation: candleFlicker 2.6s ease-in-out infinite;
+}
+
+@keyframes candleFlicker {
+  0%, 100% { opacity: .92; transform: translateX(-50%) scale(1); }
+  35% { opacity: 1; transform: translateX(-52%) scale(1.05); }
+  60% { opacity: .85; transform: translateX(-48%) scale(.96); }
+}
+
+   Llave antigua, esquina inferior derecha   
+.desk-object--key {
+  right: 11%;
+  bottom: 16%;
+  width: 16%;
+  max-width: 68px;
+  height: 5%;
+  min-height: 14px;
+  background: linear-gradient(200deg, var(--gold-soft) 0%, #8a6a30 100%);
+  border-radius: 3px;
+  transform: rotate(18deg) translateY(8px);
+  transition-delay: 360ms;
+}
+body[data-state="lighting"] .desk-object--key,
+body[data-state="desk"] .desk-object--key,
+body[data-state="approaching"] .desk-object--key,
+body[data-state="lifting"] .desk-object--key,
+body[data-state="sealed"] .desk-object--key {
+  transform: rotate(18deg) translateY(0);
+}
+.desk-object--key::before {
+  content: "";
+  position: absolute;
+  left: -22%;
+  top: 50%;
+  width: 42%;
+  height: 220%;
+  transform: translateY(-50%);
+  border: 3px solid #8a6a30;
+  border-radius: 50%;
+  background: transparent;
+}
+
+   Pequeño objeto metálico (moneda/medalla), cerca del centro-inferior   
+.desk-object--coin {
+  left: 50%;
+  bottom: 9%;
+  width: 7%;
+  max-width: 30px;
+  height: 3.4vh;
+  max-height: 30px;
+  border-radius: 50%;
+  transform: translateX(-140%) translateY(8px);
+  background: radial-gradient(120% 120% at 32% 26%, #f3dfa0 0%, #b6923f 55%, #6d4f1c 100%);
+  box-shadow: 0 4px 8px rgba(0,0,0,.5), inset 0 1px 2px rgba(255,255,255,.5);
+  transition-delay: 440ms;
+}
+body[data-state="lighting"] .desk-object--coin,
+body[data-state="desk"] .desk-object--coin,
+body[data-state="approaching"] .desk-object--coin,
+body[data-state="lifting"] .desk-object--coin,
+body[data-state="sealed"] .desk-object--coin {
+  transform: translateX(-140%) translateY(0);
+}
+========================================================================== */
+
+/* Ajuste de tamaño (a pedido, sin tocar posición/tiempos/luz/fondo/sello):
+   el ancho base ya no tiene un tope fijo en píxeles (antes "min(86vw,400px)"
+   — en cualquier ventana de escritorio normal ese tope de 400px se activaba
+   siempre, así que la carta terminaba ocupando un % del ancho cada vez más
+   chico cuanto más ancha fuera la pantalla). Ahora es 86vw puro: el % de
+   pantalla que ocupa la carta (controlado por los scale() de más abajo) se
+   mantiene estable sin importar el ancho de la ventana. */
+.envelope-stage {
+  position: relative;
+  width: 86vw;
+  perspective: 1400px;
+  perspective-origin: 50% 30%;
+  z-index: 2;
+  transform: translate(0, 0) scale(1) rotate(0deg);
+  transition: transform 1000ms var(--ease-soft);
+}
+
+/* Sombra de contacto sobre la mesa: presente mientras el sobre "descansa" en la
+   escena inicial, se atenúa en cuanto la carta se despega de la superficie. */
+.envelope-stage::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8%;
+  width: 72%;
+  height: 20%;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(0,0,0,.6), rgba(0,0,0,0) 72%);
+  filter: blur(7px);
+  opacity: 0;
+  transition: opacity 900ms ease, transform 900ms ease;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ==========================================================================
+   SOBRE DEFINITIVO: assets/sobre.png (ya no un sobre dibujado con divs y
+   triángulos de CSS). .envelope-visual es el ÚNICO contenedor que agrupa la
+   imagen, la inscripción y el sello (ver index.html): al acercarse la
+   cámara, solo se escala .envelope-stage (más abajo, sin tocar) — como
+   .envelope-visual es un solo bloque, ese escalado alcanza a los tres
+   elementos por igual y jamás se descompensan sus proporciones entre sí.
+   Conserva exactamente los mismos roles que tenía .envelope antes (mismo
+   preserve-3d/drop-shadow/transition, y el mismo rotateX de apoyo sobre la
+   mesa): la posición, el tamaño y el acercamiento de toda la escena no
+   cambiaron en absoluto.
+   ========================================================================== */
+.envelope-visual {
+  position: relative;
+  width: 100%;
+  /* Relación de aspecto real de assets/sobre.png ya recortada a sus bordes
+     opacos (1499 × 883 px). Si se reemplaza la foto por otra con otras
+     proporciones, este es el único valor que hay que actualizar. */
+  aspect-ratio: 1499 / 883;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 10px 16px rgba(0,0,0,.5));
+  transition: transform 1100ms var(--ease-soft), opacity 900ms var(--ease-soft), filter 1300ms ease;
+}
+
+/* Perspectiva coherente con la mesa: mientras el sobre está apoyado sobre
+   la madera (dark/lighting/desk/approaching) se lo inclina en el eje X para
+   que se vea EN el plano de la mesa, como la ve la cámara en alto ángulo de
+   la foto — no parado/flotando de frente. .envelope-stage ya define la
+   perspective que hace que este giro se vea con el escorzo correcto.
+   NOTA para retomar más adelante: cuando se reactive "lifting" (la mano
+   levantando la carta), ese estado deberá volver a animar este mismo
+   rotateX hasta 0deg, para que el sobre termine de frente al lector. */
+body[data-state="dark"] .envelope-visual,
+body[data-state="lighting"] .envelope-visual,
+body[data-state="desk"] .envelope-visual,
+body[data-state="approaching"] .envelope-visual {
+  transform: rotateX(24deg);
+}
+
+/* La sombra proyectada crece mientras el sobre se separa de la mesa (más
+   "altura" percibida) y se asienta en un valor algo más marcado que el de
+   reposo sobre la mesa una vez que queda sostenido frente al usuario. */
+body[data-state="lifting"] .envelope-visual {
+  filter: drop-shadow(0 36px 56px rgba(0,0,0,.6));
+}
+
+body[data-state="sealed"] .envelope-visual,
+body[data-state="breaking"] .envelope-visual,
+body[data-state="opening"] .envelope-visual {
+  filter: drop-shadow(0 18px 34px rgba(0,0,0,.55));
+}
+
+/* La foto del sobre en sí: ocupa todo .envelope-visual (mismas proporciones,
+   ver aspect-ratio arriba), sin recortarse ni deformarse. */
+.envelope-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/* Inscripción DENTRO del sobre, en la zona superior de la solapa (la mitad
+   ancha del triángulo, bien arriba de la punta donde va el sello — ver
+   .seal más abajo), centrada horizontalmente. Tipografía manuscrita/
+   caligráfica antigua (--font-hand): delicada pero legible, en tinta oscura.
+   Como es un elemento HTML independiente dentro de .envelope-visual, escala
+   junto con el resto del conjunto (imagen + sello) sin tratamiento aparte. */
+.envelope-inscription {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: 10.5%;
+  margin: 0;
+  z-index: 4;
+
+  text-align: center;
+
+  font-family: 'Great Vibes', 'Petit Formal Script', 'Segoe Script', cursive;
+
+  font-weight: 600;
+  font-size: clamp(4.5rem, 6.9vw, 6.7rem);
+  line-height: 1;
+
+  letter-spacing: 0;
+  color: #352014;
+  opacity: .97;
+
+  text-shadow:
+    0 1px 0 rgba(255,255,255,.18),
+    0 1px 2px rgba(58,39,24,.14);
+}
+
+.envelope-inscription::after {
+  content: "◆";
+  display: block;
+  width: 54%;
+  margin: .24em auto 0;
+  padding: 0 .45em;
+  overflow: hidden;
+  color: rgba(73,49,29,.70);
+  font-family: Georgia, serif;
+  font-size: .30em;
+  line-height: 1;
+  letter-spacing: .32em;
+  border-top: 1px solid rgba(73,49,29,.45);
+}
+
+/* ==========================================================================
+   DESACTIVADO A PEDIDO: el sobre construido enteramente con divs/CSS (cuerpo
+   con degradados, solapa con dos caras para animar la apertura, cavidad
+   interior oscura, hoja asomando). Reemplazado por la foto real
+   assets/sobre.png dentro de .envelope-visual (arriba). Se conserva todo
+   este bloque de reglas comentado, sin borrar, para poder recuperar un
+   sobre 100% dibujado con CSS si hiciera falta en el futuro.
+
+   OJO al retomarlo: estas reglas asumen elementos (.envelope-cavity,
+   .envelope-body, .envelope-flap, .flap-face, .letter-peek) que ya no
+   existen en el HTML actual (quedaron comentados junto con el resto del
+   sobre viejo, ver index.html). Antes de reactivar esto hay que volver a
+   descomentar ese mismo bloque en el HTML.
+
+.envelope-cavity {
+  position: absolute;
+  inset: 3% 4%;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #100b07 0%, #1a130c 55%, #241a10 100%);
+  box-shadow: inset 0 10px 24px rgba(0,0,0,.7);
+}
+
+.envelope-body {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background:
+    linear-gradient(155deg, var(--paper-kraft-1) 0%, var(--paper-kraft-2) 55%, var(--paper-kraft-3) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.08),
+    inset 0 -18px 26px rgba(0,0,0,.18),
+    inset 0 10px 18px rgba(255,255,255,.10);
+  overflow: hidden;
+}
+
+.envelope-grain {
+  position: absolute;
+  inset: 0;
+  opacity: .5;
+  mix-blend-mode: multiply;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+    url('assets/textura-papel.jpg');
+  background-size: 180px 180px, cover;
+  background-repeat: repeat, no-repeat;
+  background-position: center, center;
+}
+
+Reglas antiguas de inscripción eliminadas: ahora la inscripción pertenece al
+sobre PNG (ver .envelope-inscription, activa, más arriba de este bloque
+desactivado). IMPORTANTE: esta nota es texto plano, SIN comentario propio a
+su alrededor, a propósito — los comentarios de CSS no se anidan, así que un
+comentario propio acá adentro cerraría de forma prematura este bloque
+comentado más grande y dejaría vivo (activo) todo lo que sigue por error
+(fue exactamente lo que pasó en una versión anterior de este archivo: se
+reactivaron sin querer .envelope-flap, .flap-face y .letter-peek, y la
+marca de cierre de este bloque grande, ya huérfana, se combinó con el
+selector .seal de más abajo en un solo selector inválido que hizo
+descartar la regla .seal COMPLETA — de ahí venía el sello gigante, sin
+position ni tamaño propios).
+
+.envelope-flap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 64%;
+  transform-style: preserve-3d;
+  transform-origin: 50% 0%;
+  transform: rotateX(0deg);
+  transition: transform 1150ms var(--ease-soft);
+  z-index: 3;
+}
+
+.flap-face {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(0 0, 100% 0, 50% 96%);
+  backface-visibility: hidden;
+}
+
+.flap-face--front {
+  background: linear-gradient(200deg, var(--paper-kraft-1) 0%, var(--paper-kraft-2) 60%, var(--paper-kraft-3) 100%);
+  box-shadow: inset 0 -10px 16px rgba(0,0,0,.16), inset 0 8px 14px rgba(255,255,255,.10);
+}
+
+.flap-face--front::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: .45;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.3 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 180px 180px;
+}
+
+.flap-face--back {
+  background: linear-gradient(200deg, #2a1c14 0%, var(--bordo-deep) 70%, #200a0f 100%);
+  transform: rotateX(180deg);
+  box-shadow: inset 0 0 30px rgba(0,0,0,.6);
+}
+
+.letter-peek {
+  position: absolute;
+  left: 50%;
+  bottom: 46%;
+  width: 58%;
+  height: 30%;
+  transform: translate(-50%, 14%) scale(.86);
+  background: linear-gradient(180deg, var(--paper-cream) 0%, var(--paper-cream-2) 100%);
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 -4px 14px rgba(0,0,0,.25);
+  opacity: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10%;
+  transition: opacity 500ms var(--ease-soft), transform 900ms var(--ease-soft);
+  z-index: 2;
+}
+
+.letter-peek-mark {
+  font-family: var(--font-title);
+  color: var(--gold);
+  opacity: .6;
+  font-size: clamp(1rem, 4vw, 1.3rem);
+}
+========================================================================== */
+
+/* ==========================================================================
+   SELLO DE LACRE
+   ========================================================================== */
+
+/* Centrado donde termina la punta de la solapa de assets/sobre.png (medido
+   sobre la foto ya recortada: la punta cae a ~72.5% de la altura total,
+   exactamente en el centro horizontal). z-index:5, por encima de la imagen
+   del sobre (z-index implícito 0 por orden de aparición) y de la
+   inscripción (z-index:4): se ve completo, integrado sobre el papel, tal
+   como en la foto real de un sobre cerrado con lacre.
+
+   TAMAÑO: se define como % de la ALTURA de .envelope-visual (el mismo
+   contenedor único que agrupa sobre + texto + sello — no un % del ancho).
+   Con height:14% y aspect-ratio:1/1, el sello sale como ~14% de la altura
+   visible del sobre (pedido: 12–15%), y como el sobre tiene una relación de
+   aspecto ancha (1499×883 ≈ 1.7:1), eso equivale a que entren ~12 sellos a
+   lo ancho del sobre — bastante más angosto que el sello, que se ve como un
+   detalle de lacre real y no como un medallón. Al ser un simple % del alto
+   de .envelope-visual (sin ningún transform/scale propio del sello), el
+   sello, el sobre y el texto quedan atados a un único número y jamás se
+   desproporcionan entre sí, en ningún estado ni durante el zoom: el único
+   transform que los mueve/escala a los tres juntos sigue siendo el de
+   .envelope-stage (sin tocar). */
+.seal {
+  position: absolute;
+  left: 50%;
+  top: 65%;
+  height: 34%;
+  aspect-ratio: 1 / 1;
+  width: auto;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  z-index: 5;
+  touch-action: manipulation;
+}
+
+.seal-glow {
+  position: absolute;
+  inset: -22%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,205,140,.35) 0%, rgba(255,205,140,0) 70%);
+  opacity: 0;
+  /* El pulso solo se activa una vez que la carta terminó de levantarse y el
+     sello queda habilitado (estado "sealed"); ver más abajo. */
+  animation: none;
+}
+
+/* assets/sello.png YA ES el sello de lacre completo (zorro y ardilla,
+   textura de cera, grietas y biselado incluidos) — ya no es un emblema
+   plano que va "adentro" de una cera dibujada con CSS. Por eso .seal-wax
+   dejó de pintar su propio círculo de lacre (ver bloque desactivado más
+   abajo) y ahora solo aporta el contenedor + la sombra de apoyo. */
+.seal-wax {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 8px 14px rgba(0,0,0,.5));
+  /* Igual que en .seal-glow: el pulso arranca recién en el estado "sealed". */
+  animation: none;
+  transition: transform 420ms var(--ease-in-out), opacity 520ms var(--ease-soft) 40ms, filter 500ms ease;
+}
+
+/* ==========================================================================
+   DESACTIVADO: el círculo de lacre dibujado con CSS (gradiente + relieve),
+   pensado para un emblema plano de una sola tinta. Ya no hace falta: la
+   imagen assets/sello.png trae su propia cera y su propio relieve. Se
+   conserva comentado por si se quisiera volver a un emblema simple sobre
+   cera dibujada por código.
+
+.seal-wax {
+  border-radius: 46% 54% 50% 50% / 54% 48% 52% 46%;
+  background:
+    radial-gradient(120% 120% at 32% 26%, var(--bordo-light) 0%, var(--bordo) 42%, var(--bordo-deep) 100%);
+  box-shadow:
+    0 8px 16px rgba(0,0,0,.45),
+    inset 0 3px 5px rgba(255,255,255,.22),
+    inset 0 -8px 14px rgba(0,0,0,.5);
+  overflow: hidden;
+}
+========================================================================== */
+
+/* El emblema ocupa todo el botón: sello.png ya trae su propio fondo
+   transparente con forma irregular de cera, así que no se recorta ni se
+   re-tiñe (nada de mix-blend-mode/sepia: eso era para un emblema plano). */
+.seal-emblem {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   DESACTIVADO: no hay ningún fallback de texto/letra si sello.png no carga
+   (a pedido explícito). El sello definitivo es una imagen real y siempre
+   está disponible como asset del proyecto; si por algún motivo no cargara,
+   el botón simplemente queda sin emblema visible en vez de mostrar una
+   letra o símbolo genérico.
+
+.seal-emblem {
+  width: 62%;
+  height: 62%;
+  mix-blend-mode: multiply;
+  filter: sepia(.35) saturate(1.3) contrast(1.25) brightness(.82) drop-shadow(0 1px 0 rgba(255,255,255,.18));
+  opacity: .92;
+  transition: opacity 300ms ease;
+}
+.seal-emblem:where([src=""],:not([src])) { opacity: 0; }
+.seal-emblem-fallback {
+  position: absolute;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.5rem, 7vw, 1.9rem);
+  color: rgba(0,0,0,.5);
+  text-shadow: 0 1px 0 rgba(255,255,255,.16);
+  pointer-events: none;
+  opacity: .8;
+}
+.seal-emblem.is-loaded ~ .seal-emblem-fallback { display: none; }
+========================================================================== */
+
+/* ==========================================================================
+   DESACTIVADO: relieve/biselado falso pensado para simular grabado sobre
+   una cera plana de CSS. sello.png ya trae su propio relieve fotográfico,
+   así que superponer esto encima solo ensuciaría la imagen real.
+.seal-engrave {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,.18),
+    inset 0 -5px 9px rgba(0,0,0,.55);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+========================================================================== */
+
+.seal-crack {
+  position: absolute;
+  height: 2px;
+  background: rgba(15, 4, 6, .8);
+  border-radius: 2px;
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.seal-crack--a { width: 46%; top: 40%; left: 16%; rotate: -18deg; }
+.seal-crack--b { width: 34%; top: 58%; left: 40%; rotate: 24deg; }
+.seal-crack--c { width: 26%; top: 32%; left: 46%; rotate: 72deg; }
+
+@keyframes sealPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+
+@keyframes sealPulseGlow {
+  0%, 100% { opacity: 0; }
+  50% { opacity: .55; }
+}
+
+/* ---- Interacción: presión ---- */
+.seal.is-pressed .seal-wax {
+  transform: scale(.94) translateY(1px);
+}
+
+/* ---- Estado breaking: grietas y desprendimiento ---- */
+body[data-state="breaking"] .seal-wax,
+body[data-state="opening"] .seal-wax,
+body[data-state="revealing"] .seal-wax,
+body[data-state="reading"] .seal-wax {
+  animation: none;
+}
+body[data-state="breaking"] .seal-glow,
+body[data-state="opening"] .seal-glow { animation: none; opacity: 0; }
+
+.seal.is-cracking .seal-crack {
+  opacity: 1;
+  transform: scaleX(1);
+  transition: opacity 260ms ease, transform 320ms var(--ease-out);
+}
+.seal.is-cracking .seal-crack--b { transition-delay: 70ms; }
+.seal.is-cracking .seal-crack--c { transition-delay: 130ms; }
+
+.seal.is-detaching .seal-wax {
+  transform: scale(.7) translateY(10px) rotate(-8deg);
+  opacity: 0;
+  filter: blur(1px);
+}
+.seal.is-detaching .seal-glow { opacity: 0; }
+
+/* El pulso/brillo del sello (la única sugerencia de que "se puede tocar")
+   arranca recién cuando la carta terminó de levantarse frente al usuario. */
+body[data-state="sealed"] .seal-wax {
+  animation: sealPulse 3.4s ease-in-out infinite;
+}
+body[data-state="sealed"] .seal-glow {
+  animation: sealPulseGlow 3.4s ease-in-out infinite;
+}
+
+/* Durante toda la introducción el sello no debe poder tocarse ni sugerir
+   interacción: sin pulso (ya cubierto arriba, que solo lo enciende en
+   "sealed") y sin eventos de puntero. */
+body[data-state="dark"] .seal,
+body[data-state="lighting"] .seal,
+body[data-state="desk"] .seal,
+body[data-state="approaching"] .seal,
+body[data-state="lifting"] .seal {
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   FRASE SUSURRADA
+   ========================================================================== */
+
+.whisper {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translate(-50%, 6px);
+  margin: 0;
+  max-width: 78vw;
+  text-align: center;
+  font-family: var(--font-subtitle);
+  font-style: italic;
+  font-size: clamp(.95rem, 4vw, 1.15rem);
+  letter-spacing: .02em;
+  color: var(--gold-soft);
+  opacity: 0;
+  text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  transition: opacity 480ms var(--ease-soft), transform 480ms var(--ease-soft);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.whisper.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ==========================================================================
+   INDICACIÓN DE TOQUE ("Toca el sello para abrir la carta")
+   Aparece en el estado "sealed" (cuando el sello ya está habilitado) y se
+   apaga en cualquier otro estado. A propósito, muy simple: la prioridad
+   ahora es que el circuito funcione, no la estética.
+   ========================================================================== */
+.tap-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 9%;
+  transform: translate(-50%, 0);
+  margin: 0;
+  z-index: 4;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+
+body[data-state="sealed"] .tap-hint {
+  opacity: 1;
+}
+
+.tap-hint-text {
+  margin: 0;
+  font-family: var(--font-subtitle);
+  font-style: italic;
+  font-size: clamp(1.4rem, 4vw, 1.8rem);
+  color: var(--gold-soft);
+  text-shadow: 0 1px 3px rgba(0,0,0,.6);
+}
+
+.tap-hint-mark {
+  display: block;
+  margin: .4em auto 0;
+  color: var(--gold);
+  opacity: .85;
+}
+
+/* ==========================================================================
+   CÁMARA DE LA INTRO (dark/lighting/desk → approaching → lifting)
+   Mueve y escala .envelope-stage para simular que el observador se acerca a
+   la mesa y luego alguien levanta la carta. A partir de "sealed" el sobre
+   vuelve exactamente a su posición/escala original (transform identidad),
+   por lo que toda la secuencia sello→sobre→hoja que sigue no se modificó.
+   ========================================================================== */
+
+/* La carta descansa sobre la mesa, en la zona libre central de
+   assets/mesa.png. translate(0, 14vh) ubica su centro exactamente en
+   (--letter-x, --letter-y) = (50%, 64%) del viewport — ese valor de
+   traslado NO se toca y se mantiene IDÉNTICO entre "desk" y "approaching":
+   la carta nunca se mueve de sitio, solo cambia de escala, quedando
+   siempre anclada al mismo lugar de la mesa.
+
+   TAMAÑO (único valor ajustado a pedido): con .envelope-stage en 86vw de
+   ancho base, scale(.163) deja la carta en ~14% del ancho visible
+   (86% × .163 ≈ 14%, dentro del 12–16% pedido) — sigue leyéndose como un
+   objeto chico sobre la mesa, pero ya reconocible como carta. */
+body[data-state="dark"] .envelope-stage,
+body[data-state="lighting"] .envelope-stage,
+body[data-state="desk"] .envelope-stage {
+  transform: translate(0, 14vh) scale(.163) rotate(-6deg);
+  transition: transform 200ms linear;
+}
+
+body[data-state="dark"] .envelope-stage::after,
+body[data-state="lighting"] .envelope-stage::after,
+body[data-state="desk"] .envelope-stage::after,
+body[data-state="approaching"] .envelope-stage::after {
+  opacity: .8;
+}
+
+/* La cámara se acerca lentamente hacia la carta: MISMA traslación y MISMA
+   rotación que en "desk" (0, 14vh, -6deg) — solo cambia la escala, para que
+   la carta crezca en el lugar exacto donde ya estaba, sin desplazarse ni
+   un píxel de la mesa. Misma duración/curva que el zoom del fondo (sin
+   tocar esos valores), para que la transición siga siendo continua y
+   suave, sin saltos.
+
+   TAMAÑO (único valor ajustado a pedido): scale(.814) deja la carta en
+   ~70% del ancho visible (86% × .814 ≈ 70%, dentro del 65–75% pedido) al
+   terminar el acercamiento — primer plano, todavía apoyada sobre la mesa,
+   con su perspectiva, rotación y sombra intactas. */
+body[data-state="approaching"] .envelope-stage {
+  transform: translate(0, -3vh) scale(.814) rotate(-6deg);
+  
+  transition: transform 4000ms linear;
+}
+
+/* ==========================================================================
+   "lifting" sigue SIN USARSE (se salta a propósito, ver script.js:
+   iniciarEscenaCinematica ahora pasa de "approaching" directo a "sealed").
+   @keyframes liftCard queda tal cual, sin tocar, por si se quisiera
+   reincorporar ese paso más adelante — pero ojo, su punto de partida (0%)
+   sigue usando la posición/escala vieja de "approaching" (translate(4vw,3vh)
+   scale(.66) rotate(-3deg)), desactualizada respecto de la actual
+   (translate(0,14vh) scale(.814) rotate(-6deg)). */
+body[data-state="lifting"] .envelope-stage {
+  animation: liftCard 1300ms cubic-bezier(.22,.61,.32,1) forwards;
+}
+
+body[data-state="lifting"] .envelope-stage::after {
+  opacity: .15;
+  transform: translateX(-50%) scale(.55);
+}
+
+@keyframes liftCard {
+  0% {
+    transform: translate(4vw, 3vh) scale(.66) rotate(-3deg);
+  }
+  22% {
+    /* la mano "sujeta" la carta: leve corrimiento + más inclinación */
+    transform: translate(2vw, 0vh) scale(.72) rotate(-9deg);
+  }
+  55% {
+    /* se separa del plano de la mesa y sube hacia la cámara */
+    transform: translate(-1vw, -7vh) scale(.92) rotate(5deg);
+  }
+  80% {
+    transform: translate(0vw, -4vh) scale(1.02) rotate(-1deg);
+  }
+  100% {
+    /* queda derecha, centrada, del mismo tamaño que en "sealed" */
+    transform: translate(0, -3%) scale(1) rotate(0deg);
+  }
+}
+
+/* A partir de acá la carta ya está sostenida frente al usuario: posición y
+   escala idénticas a como funcionaba el proyecto original. */
+body[data-state="sealed"] .envelope-stage,
+body[data-state="breaking"] .envelope-stage,
+body[data-state="opening"] .envelope-stage,
+body[data-state="revealing"] .envelope-stage {
+  transform: translate(0, -7vh) scale(.68) rotate(-6deg);
+}
+
+body[data-state="sealed"] .envelope-stage::after,
+body[data-state="breaking"] .envelope-stage::after,
+body[data-state="opening"] .envelope-stage::after,
+body[data-state="revealing"] .envelope-stage::after,
+body[data-state="reading"] .envelope-stage::after {
+  opacity: 0;
+}
+
+/* ==========================================================================
+   ESTADOS DE LA ESCENA (sello → sobre → hoja)
+   Las reglas viejas de acá apuntaban a .envelope/.envelope-flap/.letter-peek,
+   elementos que ya no existen en el HTML (el sobre ahora es la foto única
+   .envelope-visual, ver más arriba) — por eso, aunque sintácticamente
+   válidas, no tenían ningún efecto (no hacían fallar nada, pero tampoco
+   hacían NADA visible). Reescritas contra .envelope-visual, que sí existe.
+   Deliberadamente simple por ahora (solo un desvanecido): la prioridad es
+   que el circuito funcione, no la estética de la apertura.
+   ========================================================================== */
+
+/* revealing / reading: el sobre se desvanece para dar paso a la lectura. */
+body[data-state="revealing"] .envelope-visual,
+body[data-state="reading"] .envelope-visual {
+  opacity: 0;
+  transition: opacity 900ms var(--ease-in-out);
+}
+
+body[data-state="revealing"] .whisper,
+body[data-state="reading"] .whisper {
+  opacity: 0;
+}
+
+body[data-state="reading"] .scene {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   PÁGINA DE LECTURA
+   ========================================================================== */
+
+.reading {
+  position: relative;
+  z-index: 6;
+  min-height: 100svh;
+  display: flex;
+  justify-content: center;
+  background: var(--bg-deep-2);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 1000ms var(--ease-soft);
+}
+
+body[data-state="revealing"] .reading {
+  opacity: 1;
+  visibility: visible;
+}
+
+body[data-state="reading"] .reading {
+  opacity: 1;
+  visibility: visible;
+  position: static;
+}
+
+.reading-scroll {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  transform: scale(.7) translateY(6svh);
+  opacity: 0;
+  transition: transform 1200ms var(--ease-out) 120ms, opacity 900ms var(--ease-soft) 120ms;
+}
+
+body[data-state="revealing"] .reading-scroll,
+body[data-state="reading"] .reading-scroll {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.page {
+  position: relative;
+
+  width: min(92vw, 720px);
+  margin: 6svh 0 8svh;
+
+  padding:
+    clamp(3.2rem, 8vw, 5rem)
+    clamp(2.5rem, 7vw, 4.5rem)
+    clamp(4rem, 9vw, 5.8rem);
+
+  color: var(--ink);
+
+  background:
+    radial-gradient(
+      ellipse at center,
+      #f2dfae 0%,
+      #e4c482 58%,
+      #c38b46 82%,
+      #7a3f18 100%
+    );
+
+  clip-path: polygon(
+    2% 1%,
+    8% 0.4%,
+    14% 1.4%,
+    21% 0.3%,
+    29% 1.1%,
+    37% 0.5%,
+    46% 1.2%,
+    55% 0.3%,
+    64% 1.2%,
+    73% 0.4%,
+    82% 1.3%,
+    91% 0.4%,
+    98% 1.4%,
+
+    99% 8%,
+    98.4% 17%,
+    99.2% 27%,
+    98.3% 38%,
+    99.3% 49%,
+    98.2% 60%,
+    99.1% 72%,
+    98.4% 84%,
+    99% 96%,
+
+    92% 99%,
+    82% 98.4%,
+    73% 99.3%,
+    63% 98.3%,
+    53% 99.2%,
+    43% 98.2%,
+    33% 99.1%,
+    23% 98.3%,
+    13% 99.2%,
+    2% 97.5%,
+
+    1% 88%,
+    1.6% 77%,
+    .7% 66%,
+    1.5% 55%,
+    .6% 44%,
+    1.5% 33%,
+    .7% 22%,
+    1.5% 11%
+  );
+
+  box-shadow:
+    0 30px 70px rgba(0,0,0,.72),
+    0 8px 24px rgba(0,0,0,.42);
+}
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  background:
+    /* quemado superior */
+    linear-gradient(
+      to bottom,
+      rgba(45,18,4,.9) 0%,
+      rgba(80,34,8,.55) 1.2%,
+      rgba(120,65,18,.25) 3%,
+      transparent 7%
+    ),
+
+    /* quemado inferior */
+    linear-gradient(
+      to top,
+      rgba(40,15,3,.92) 0%,
+      rgba(82,35,8,.58) 1.4%,
+      rgba(125,65,18,.28) 3.5%,
+      transparent 7%
+    ),
+
+    /* quemado izquierda */
+    linear-gradient(
+      to right,
+      rgba(38,14,3,.95) 0%,
+      rgba(82,35,8,.6) 1.4%,
+      rgba(130,68,20,.28) 3.5%,
+      transparent 7%
+    ),
+
+    /* quemado derecha */
+    linear-gradient(
+      to left,
+      rgba(38,14,3,.95) 0%,
+      rgba(82,35,8,.6) 1.4%,
+      rgba(130,68,20,.28) 3.5%,
+      transparent 7%
+    ),
+
+    /* manchas */
+    radial-gradient(
+      circle at 12% 18%,
+      rgba(95,45,10,.2),
+      transparent 18%
+    ),
+
+    radial-gradient(
+      circle at 86% 28%,
+      rgba(100,48,12,.16),
+      transparent 20%
+    ),
+
+    radial-gradient(
+      circle at 20% 85%,
+      rgba(90,42,10,.18),
+      transparent 18%
+    ),
+
+    radial-gradient(
+      circle at 82% 88%,
+      rgba(90,40,8,.18),
+      transparent 20%
+    ),
+
+    /* textura */
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .2 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+
+  background-size:
+    auto,
+    auto,
+    auto,
+    auto,
+    auto,
+    auto,
+    auto,
+    auto,
+    180px 180px;
+
+  mix-blend-mode: multiply;
+  opacity: .95;
+}
+
+.page-header {
+  position: relative;
+  text-align: center;
+  margin-bottom: clamp(1.6rem, 6vw, 2.4rem);
+}
+
+.ornament {
+  display: block;
+  color: var(--gold);
+  opacity: .8;
+  font-size: 1.1rem;
+  margin: 0 auto .5rem;
+}
+
+.ornament--flip {
+  transform: scaleY(-1);
+  margin: .6rem auto 0;
+}
+
+.ornament--small {
+  font-size: 1rem;
+}
+
+.title-main {
+  margin: 0;
+  font-family: var(--font-title);
+  font-weight: 600;
+  font-size: clamp(1.9rem, 9vw, 3rem);
+  letter-spacing: .12em;
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgba(255,255,255,.4);
+}
+
+.title-sub {
+  margin: .4rem 0 0;
+  font-family: var(--font-subtitle);
+  font-weight: 500;
+  font-style: italic;
+  font-size: clamp(1.1rem, 5vw, 1.5rem);
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.prologo {
+  position: relative;
+  font-family: var(--font-body);
+  font-size: clamp(1.05rem, 4.4vw, 1.2rem);
+  line-height: 1.75;
+  color: var(--ink);
+}
+
+.prologo p {
+  margin: 0 0 1.1em;
+  text-align: left;
+  text-wrap: pretty;
+}
+
+.prologo code {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: .82em;
+  background: rgba(0,0,0,.06);
+  padding: .1em .35em;
+  border-radius: 3px;
+}
+
+.capitular {
+  float: left;
+  font-family: var(--font-title);
+  font-size: 3.4em;
+  line-height: .78;
+  padding: .05em .08em 0 0;
+  color: var(--bordo);
+}
+
+.page-footer {
+  text-align: center;
+  margin-top: clamp(1.6rem, 6vw, 2.2rem);
+}
+
+/* ==========================================================================
+   ACCESIBILIDAD Y PREFERENCIAS
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .seal-wax, .seal-glow, .candle-flame { animation: none !important; }
+
+  /* La intro cinematográfica NUNCA se saltea con prefers-reduced-motion
+     (eso se decide en script.js, que además acorta los tiempos de espera
+     entre estados, incluyendo la animación de revelado de #sceneReveal).
+     Acá solo achicamos la duración de sus movimientos para que sean sutiles
+     en vez de bruscos, sin desaparecer: oscuridad, luz, mesa y acercamiento
+     siguen ocurriendo. */
+  .envelope-stage,
+  .envelope-stage::after,
+  .scene-reveal,
+  .scene-light,
+  .scene-backdrop {
+    transition-duration: 450ms !important;
+    animation-duration: 450ms !important;
+  }
+
+  /* Secuencia sello → sobre → hoja: sin cambios respecto de antes. */
+  .envelope,
+  .envelope-flap,
+  .letter-peek,
+  .reading,
+  .reading-scroll,
+  .scene,
+  .whisper {
+    transition-duration: 1ms !important;
+  }
+}
+
+.seal:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+/* No permitir scroll horizontal en ningún estado */
+.scene, .reading, #app { max-width: 100vw; }
+
+/* Pantallas muy bajas (móvil en apaisado): compactar la escena */
+@media (max-height: 480px) {
+  .envelope-stage { width: min(70vw, 340px); }
+  .whisper { bottom: 4%; }
+}
+
+/* =========================================================
+   PARCHE FUNCIONAL - SELLO
+   ========================================================= */
+
+body[data-state="sealed"] .tap-hint {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 30 !important;
+  transform: translate(-50%, 0) !important;
+}
+
+body[data-state="sealed"] .seal {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  z-index: 40 !important;
+}
+
+.page-corner {
+  position: absolute;
+  z-index: 3;
+  font-family: Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  color: rgba(79, 41, 16, .82);
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 0 rgba(255,255,255,.12);
+}
+
+.page-corner--tl {
+  top: 3.5%;
+  left: 4%;
+  transform: rotate(-35deg);
+}
+
+.page-corner--tr {
+  top: 3.5%;
+  right: 4%;
+  transform: scaleX(-1) rotate(-35deg);
+}
+
+.page-corner--bl {
+  bottom: 3.5%;
+  left: 4%;
+  transform: scaleY(-1) rotate(-35deg);
+}
+
+.page-corner--br {
+  bottom: 3.5%;
+  right: 4%;
+  transform: scale(-1) rotate(-35deg);
+}
