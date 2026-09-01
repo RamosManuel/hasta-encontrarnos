@@ -397,60 +397,7 @@
 
         </div>
 
-        <!-- ==========================================================================
-             DESACTIVADO A PEDIDO: el sobre construido enteramente con divs/CSS
-             (cuerpo, solapa con dos caras, cavidad interior, hoja asomando) ya
-             NO se usa: fue reemplazado por la foto real assets/sobre.png
-             dentro de .envelope-visual (arriba). Se conserva completo, sin
-             borrar, para poder recuperarlo si en el futuro hiciera falta un
-             sobre 100% dibujado con CSS. Los ids duplicados de acá abajo
-             (sealBtn, sealEmblem) no generan conflicto porque este bloque
-             entero es un comentario HTML: el navegador no lo interpreta.
-             OJO al retomar las fases de apertura (lifting en adelante): esas
-             reglas de styles.css todavía apuntan a esta estructura vieja
-             (.envelope, .envelope-flap, .letter-peek); van a necesitar
-             reescribirse contra .envelope-visual, y probablemente
-             rediseñarse por completo, ya que la solapa ahora es parte fija de
-             la foto (no hay una .envelope-flap real que pueda "abrirse" por
-             separado).
-
-        <div class="envelope" id="envelope">
-
-          <div class="envelope-cavity" aria-hidden="true"></div>
-
-          <div class="letter-peek" id="letterPeek" aria-hidden="true">
-            <span class="letter-peek-mark">✦</span>
-          </div>
-
-          <div class="envelope-body">
-            <div class="envelope-grain" aria-hidden="true"></div>
-            <p class="envelope-inscription">Para la Emperatriz Ardilla</p>
-          </div>
-
-          <div class="envelope-flap" id="envelopeFlap">
-            <span class="flap-face flap-face--front"></span>
-            <span class="flap-face flap-face--back"></span>
-          </div>
-
-          <button type="button" class="seal" id="sealBtn" aria-label="Romper el sello y abrir la carta" disabled>
-            <span class="seal-wax">
-              <img
-                data-src="assets/sello.png"
-                alt=""
-                class="seal-emblem"
-                id="sealEmblem"
-                draggable="false"
-              />
-              <span class="seal-engrave" aria-hidden="true"></span>
-              <span class="seal-crack seal-crack--a" aria-hidden="true"></span>
-              <span class="seal-crack seal-crack--b" aria-hidden="true"></span>
-              <span class="seal-crack seal-crack--c" aria-hidden="true"></span>
-            </span>
-            <span class="seal-glow" aria-hidden="true"></span>
-          </button>
-
-        </div>
-        ========================================================================== -->
+    
 
       </div>
 
