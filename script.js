@@ -1,23 +1,4 @@
-/* ==========================================================================
-   RAINBOWLAND — Prólogo
-   Controla la secuencia completa:
-   dark → lighting → desk → approaching → lifting →
-   sealed → breaking → opening → revealing → reading.
-   Solo vanilla JS. Las animaciones viven en styles.css; este archivo mueve
-   el estado (body[data-state]) y agrega/quita clases auxiliares al sello.
 
-   iniciarEscenaCinematica(), más abajo, corre la intro (dark → lighting →
-   desk → approaching) y, apenas termina el acercamiento, pasa directo a
-   "sealed" (se salta "lifting" a propósito: no hay mano/animación de
-   levantar la carta). "sealed" es el estado de espera: sello habilitado,
-   con el texto "Toca el sello para abrir la carta" (#tapHint, ver
-   styles.css). Tocar el sello dispara iniciarSecuenciaCompleta(), que
-   resuelve el resto: ruptura del sello, apertura del sobre y el prólogo.
-
-   Nuevo en esta versión: iniciarRevelacionDeLuz() anima a mano, con
-   requestAnimationFrame, el "iris" de luz de #sceneReveal que se abre
-   desde la vela ya encendida de assets/mesa.png hacia el resto de la mesa,
-   en vez de un simple opacity 0→1 de toda la imagen. */
 
 (function () {
   "use strict";
@@ -204,36 +185,51 @@
   // bloquea autoplay con sonido, queda armado un fallback que la inicia
   // con la primera interacción del usuario (clic, toque o tecla).
   function iniciarMusicaFondo() {
-    if (!musicaFondo) return;
+  if (!musicaFondo) return;
 
-    musicaFondo.loop = true;
-    musicaFondo.volume = 0.28;
+  musicaFondo.loop = true;
+  musicaFondo.volume = 0.28;
 
-    const intentar = function () {
-      try {
-        const p = musicaFondo.play();
-        if (p && typeof p.catch === "function") {
-          p.catch(function () {
-            /* autoplay bloqueado: el fallback de interacción lo resolverá */
+  function intentarReproducir() {
+    if (!musicaFondo.paused) {
+      quitarDesbloqueo();
+      return;
+    }
+
+    try {
+      const promesa = musicaFondo.play();
+
+      if (promesa && typeof promesa.then === "function") {
+        promesa
+          .then(function () {
+            quitarDesbloqueo();
+          })
+          .catch(function () {
+            // El navegador todavía no permitió reproducir.
+            // Dejamos los listeners activos para el próximo gesto.
           });
-        }
-      } catch (e) {
-        /* noop */
       }
-    };
-
-    intentar();
-
-    const desbloquear = function () {
-      if (!musicaFondo.paused) return;
-      intentar();
-    };
-
-    document.addEventListener("pointerdown", desbloquear, { once: true });
-    document.addEventListener("touchstart", desbloquear, { once: true, passive: true });
-    document.addEventListener("keydown", desbloquear, { once: true });
+    } catch (e) {
+      // Seguimos esperando otra interacción.
+    }
   }
 
+  function quitarDesbloqueo() {
+    document.removeEventListener("touchend", intentarReproducir, true);
+    document.removeEventListener("pointerup", intentarReproducir, true);
+    document.removeEventListener("click", intentarReproducir, true);
+    document.removeEventListener("keydown", intentarReproducir, true);
+  }
+
+  // Intento inicial: funcionará en escritorio si autoplay está permitido.
+  intentarReproducir();
+
+  // En móvil permanecen activos hasta que REALMENTE comience la música.
+  document.addEventListener("touchend", intentarReproducir, true);
+  document.addEventListener("pointerup", intentarReproducir, true);
+  document.addEventListener("click", intentarReproducir, true);
+  document.addEventListener("keydown", intentarReproducir, true);
+}
   function reproducirSonido(elementoAudio) {
     if (!elementoAudio) return;
     try {
