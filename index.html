@@ -7,7 +7,7 @@
 <meta name="description" content="Una carta antigua y sellada, esperando a ser abierta. Introducción al prólogo de Rainbowland." />
 <meta name="theme-color" content="#0b0906" />
 
-<!-- Tipografías: título ornamentado, subtítulo clásico, cuerpo muy legible -->
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Petit+Formal+Script&display=swap" rel="stylesheet">
@@ -15,9 +15,7 @@
 <link rel="stylesheet" href="styles.css" />
 
 <style id="paginationStyles">
-  /* =========================================================
-     LECTURA PAGINADA EN VARIAS HOJAS
-     ========================================================= */
+
 
   .reading-scroll {
     width: 100%;
@@ -58,7 +56,7 @@
         #6a3412 100%
       );
 
-    /* Irregularidad leve: hoja antigua, sin picos gigantes */
+
     clip-path: polygon(
       1% .8%,
       8% .25%,
@@ -284,77 +282,18 @@
 <body data-state="dark">
 
   <div id="app">
-
-    <!-- ================= ESCENA: INTRO CINEMATOGRÁFICA (PRUEBA) =================
-         Estados definidos, en orden: dark → lighting → desk → approaching → lifting →
-         sealed → breaking → opening → revealing → reading.
-
-         VERSIÓN DE PRUEBA ACTUAL: la secuencia SOLO corre hasta "approaching" y
-         ahí se congela (ver iniciarEscenaCinematica en script.js). Todo lo que
-         sigue después (lifting → sealed → ... → reading, es decir: la mano/
-         levantamiento de la carta, la apertura del sello y del sobre, la hoja y
-         el prólogo) permanece en el código, sin usarse todavía, para retomarlo
-         en una próxima etapa una vez aprobado este primer tramo visual. -->
+    
     <section class="scene" id="scene" aria-label="Escena de apertura de la carta de Rainbowland">
 
-      <!-- ESCENARIO DEFINITIVO: la mesa es ahora una imagen real (assets/mesa.png),
-           no un dibujo hecho con CSS. .scene-backdrop pinta esa imagen de fondo. -->
       <div class="scene-backdrop" aria-hidden="true"></div>
       <div class="scene-vignette" aria-hidden="true"></div>
 
-      <!-- ==========================================================================
-           DESACTIVADO A PEDIDO (prueba de la intro visual con la mesa real):
-           la mesa y los objetos ya NO se dibujan con CSS (nada de libros, vela,
-           llave, pluma ni tintero generados por código): todo eso ahora está
-           "horneado" dentro de la foto assets/mesa.png. Se deja el bloque
-           comentado, sin borrar, para poder recuperarlo fácilmente si en algún
-           momento se quisiera volver a un escenario 100% dibujado con CSS.
-      <div class="desk-scene" id="deskScene" aria-hidden="true">
-        <span class="desk-surface"></span>
-        <span class="desk-object desk-object--book1"></span>
-        <span class="desk-object desk-object--book2"></span>
-        <span class="desk-object desk-object--quill">
-          <span class="quill-feather"></span>
-          <span class="quill-inkwell"></span>
-        </span>
-        <span class="desk-object desk-object--candle">
-          <span class="candle-flame"></span>
-        </span>
-        <span class="desk-object desk-object--key"></span>
-        <span class="desk-object desk-object--coin"></span>
-      </div>
-      ========================================================================== -->
-
-      <!-- Luz cálida adicional (aditiva) que refuerza la sensación de que la vela
-           real de la foto es la que se acaba de encender. Su posición apunta a
-           las coordenadas de la vela dentro de assets/mesa.png (ver --candle-x/
-           --candle-y en styles.css). -->
       <div class="scene-light" id="sceneLight" aria-hidden="true"></div>
 
-      <!-- Máscara de revelado: pantalla negra que, en el estado "lighting", se abre
-           progresivamente desde el punto de la vela hacia el resto de la mesa
-           (ver #sceneReveal en script.js). Reemplaza al viejo .intro-veil, que
-           solo hacía un fundido plano de opacidad de toda la imagen. -->
       <div class="scene-reveal" id="sceneReveal" aria-hidden="true"></div>
-
-      <!-- ==========================================================================
-           DESACTIVADO: viejo velo negro de fundido plano (opacity 0→1 de toda la
-           escena). Se reemplazó por #sceneReveal (revelado localizado desde la
-           vela). Se conserva comentado por si se necesita comparar o volver atrás.
-      <div class="intro-veil" id="introVeil" aria-hidden="true"></div>
-      ========================================================================== -->
-
+      
       <div class="envelope-stage" id="envelopeStage">
 
-        <!-- SOBRE DEFINITIVO: ahora es la foto real assets/sobre.png (ya no un
-             sobre dibujado con divs/triángulos/CSS). Sobre esa imagen van DOS
-             elementos HTML independientes —la inscripción y el sello—, pero
-             los TRES (imagen + texto + sello) viven dentro de un mismo
-             contenedor: .envelope-visual. El único escalado de acercamiento
-             sigue aplicándose a .envelope-stage (ver styles.css, sin tocar);
-             como .envelope-visual es un único bloque adentro, ese escalado
-             alcanza a la imagen, al texto y al sello al mismo tiempo y en la
-             misma proporción — nunca se escala cada uno por separado. -->
         <div class="envelope-visual" id="envelopeVisual">
 
           <img
@@ -363,21 +302,9 @@
             alt=""
             draggable="false"
           />
-
-          <!-- Inscripción DENTRO del sobre, en la zona superior de la solapa,
-               centrada. Tipografía manuscrita/caligráfica (ver --font-hand y
-               .envelope-inscription en styles.css). -->
+         
           <p class="envelope-inscription">Para la Emperatriz Ardilla</p>
-
-          <!-- Sello de lacre, tocable más adelante. NOTA: assets/sello.png es
-               el sello DEFINITIVO (zorro y ardilla) y se usa tal cual, a
-               pantalla completa del botón: no hay ningún fallback de
-               texto/letra si la imagen no carga (ver seal-emblem en
-               styles.css). Centrado donde termina la punta de la solapa de
-               assets/sobre.png (ver .seal en styles.css). El sello sigue sin
-               ser clickeable en esta etapa (atributo disabled +
-               pointer-events:none mientras no se llegue al estado "sealed",
-               que todavía no ocurre). -->
+         
           <button type="button" class="seal" id="sealBtn" aria-label="Romper el sello y abrir la carta" disabled>
             <span class="seal-wax">
               <img
@@ -395,16 +322,10 @@
             <span class="seal-glow" aria-hidden="true"></span>
           </button>
 
-        </div>
-
-    
+        </div>    
 
       </div>
-
-      <!-- Indicación de que se puede tocar el sello: visible mientras se
-           espera el toque (estado "sealed"). Se activa por CSS
-           (body[data-state="sealed"] .tap-hint, ver styles.css) — sin
-           depender de que JS le agregue/saque estilos a mano. -->
+      
       <div class="tap-hint" id="tapHint" aria-hidden="true">
         <p class="tap-hint-text">Toca el sello para abrir la carta</p>
         <span class="tap-hint-mark" aria-hidden="true">✦</span>
@@ -413,27 +334,23 @@
       <p class="whisper" id="whisper" aria-live="polite"></p>
 
     </section>
-
-    <!-- ================= PÁGINA DE LECTURA: PRÓLOGO PAGINADO ================= -->
+   
     <main class="reading" id="reading" aria-hidden="true">
       <div class="reading-scroll">
 
-        <!-- JS genera aquí todas las hojas necesarias -->
         <div class="pages" id="pages"></div>
 
-        <!-- Fuente invisible del prólogo. No se muestra directamente. -->
         <div id="prologoSource" hidden>
 <h1 class="story-title">Donde comienzan las historias que parecían haber terminado</h1>
 
   <div class="story-divider" aria-hidden="true">❦</div>
 
 
-
-  <p><span class="capitular">H</span>ay historias que comienzan con un encuentro. Otras comienzan con una despedida. Esta comienza mucho después de ambas cosas.</p>
+  <p><span class="capitular">H</span>ay historias que comienzan con un encuentro. Otras comienzan con una despedida. La nuestra comienza mucho después de ambas cosas.</p>
 
   <p>En algún lugar más allá de las montañas que sostienen el cielo, cruzando los bosques donde los árboles susurran secretos y siguiendo un camino que desaparece cada vez que alguien intenta dibujarlo en un mapa, existe un reino llamado <strong>Rainbowland</strong>.</p>
 
-  <p>Dicen que allí los arcoíris no aparecen después de las tormentas. Nacen de la tierra. Pequeños al principio, casi invisibles, hasta que comienzan a trepar lentamente hacia el cielo.</p>
+  <p>Dicen que allí los arcoíris no aparecen después de las tormentas sino que nacen de la tierra. Pequeños al principio, casi invisibles, hasta que comienzan a trepar lentamente hacia el cielo.</p>
 
   <p>Dicen también que algunas noches las estrellas descienden tanto que pueden tocarse desde las torres del castillo y que, cuando llega la primavera, ciertos árboles producen flores capaces de guardar un recuerdo durante toda la eternidad.</p>
 
@@ -441,15 +358,57 @@
 
   <p>Una pequeña Ardilla de mirada inquieta, extremadamente bella y un corazón capaz de convertir cualquier lugar en hogar.</p>
 
-  <p>Curun habría reconocido aquella mirada entre millones. Porque mucho antes de que esta historia comenzara, él había llamado a la Emperatriz de otra manera. Un nombre que no figuraba en ningún libro. Que ningún súbdito pronunciaba. Que pertenecía solamente a ellos.
+  <p>Curun habría reconocido los ojos de la Emperatriz entre millones. Porque mucho antes de que esta historia comenzara, él había llamado a la Emperatriz de otra manera. Un nombre que no figuraba en ningún libro. Que ningún súbdito pronunciaba. Que pertenecía solamente a ellos. <strong>Moi.</strong> Y ella también lo había llamado así.</p>
 
-  <p><strong>Moi.</strong> Y ella también lo había llamado así.</p>
+  <p>Curun era un zorro.
 
-  <p>Curun era un Zorro. Aunque sería injusto decir que era simplemente un zorro. Era pícaro, terriblemente pícaro. Podríamos llegar a decir que era un bandido, no solo un bandido común y corriente era el Rey de los Bandidos.</p>
+Aunque decir que Curun era un zorro sería como decir que un huracán es apenas un poco de viento.
 
-  <p>Tenía una artimaña para casi cualquier problema. Si encontraba una puerta cerrada, buscaba una ventana. Si no había una ventana, convencía al guardia. Y si no existía ningún guardia, Curun probablemente inventaría uno. Porque Curun siempre se jactaba de su lema "Porque Quiero y Porque Puedo"</p>
+Curun era pícaro. Terriblemente pícaro. Un bribón, un embaucador y, según él mismo, el indiscutible Rey de los Bandidos.
 
-  <p>Con su astucia había escapado de situaciones imposibles. Había convencido a criaturas que juraban ser imposibles de convencer. Incluso había conseguido alguna vez que un dragón le pidiera disculpas después de intentar comérselo. Y no solo eso, sino que cuando se descuidó le robo un tesoro que tenía muy protegido para luego cambiarlo por comida. Porque Curun era así al final de su travesura, sonría de na manera que hacía brillar los ojos de su amada Ardilla, para luego compartir esa porción de torta juntos.</p>
+No había cerradura que lo detuviera ni problema para el que no tuviera una artimaña.
+
+Si encontraba una puerta cerrada, buscaba una ventana.
+Si la ventana también estaba cerrada, convencía al guardia de que se la abriera.
+Y si no había ningún guardia...
+
+Bueno.
+
+Curun seguramente encontraría la manera de que apareciera uno.
+
+—Porque quiero y porque puedo —decía, como si aquello explicara perfectamente todas las cosas.
+
+Y, para Curun, las explicaba.
+
+Gracias a su astucia había escapado de mazmorras, engañado a criaturas que juraban ser imposibles de engañar y salido caminando tranquilamente de situaciones de las que nadie debería haber salido caminando.
+
+Una vez, incluso, un dragón intentó comérselo.
+
+Al terminar la tarde, el dragón le había pedido disculpas.
+
+Curun, por supuesto, aceptó las disculpas.
+
+También le robó parte de su tesoro.
+
+No porque necesitara oro. Curun tenía cosas mucho más importantes que comprar.
+
+Como torta.
+
+Porque detrás de cada gran fechoría de Curun había casi siempre un propósito ridículamente pequeño. Y después de burlar guardias, escapar de monstruos o enfurecer a algún pobre dragón, regresaba junto a su amada Ardilla con aquella sonrisa suya que le hacía brillar los ojos.
+
+Entonces sacaba de detrás de la espalda dos porciones de torta.
+
+—¿Preguntas?
+
+Ardilla miraba la torta. Luego a Curun.
+
+—Ninguna.
+
+Y Curun sonreía.
+
+Porque quería.
+
+Y porque podía.</p>
 
   <p>Pero existía una criatura ante la cual todas sus artimañas resultaban inútiles. Su Ardilla. Ella lo conocía demasiado. Sabía cuándo Curun tramaba algo apenas observándole los ojos. Sabía cuándo estaba preocupado aunque él dijera que estaba bien. Sabía cuándo necesitaba compañía y también cuándo necesitaba silencio.</p>
 
