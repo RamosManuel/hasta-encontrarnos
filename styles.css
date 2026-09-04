@@ -1701,10 +1701,10 @@ body[data-state="sealed"] .seal {
    ========================================================= */
 @media (max-width: 600px) {
   .envelope-inscription {
-    left: 7%;
-    right: 7%;
+    left: 14%;
+    right: 14%;
     top: 11%;
-    font-size: 0.95 rem;
-    line-height: 1.02;
+    font-size: 0.95rem;
+    line-height: 1.05;
   }
 }
