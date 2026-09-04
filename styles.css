@@ -1704,7 +1704,7 @@ body[data-state="sealed"] .seal {
     left: 7%;
     right: 7%;
     top: 11%;
-    font-size: 1.25rem;
+    font-size: 0.95 rem;
     line-height: 1.02;
   }
 }
