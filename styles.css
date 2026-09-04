@@ -1696,6 +1696,7 @@ body[data-state="sealed"] .seal {
   right: 4%;
   transform: scale(-1) rotate(-35deg);
 }
+/* =========================================================
    AJUSTE V1 - INSCRIPCIÓN DEL SOBRE EN MÓVIL
    ========================================================= */
 @media (max-width: 600px) {
