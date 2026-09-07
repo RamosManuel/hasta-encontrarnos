@@ -19,10 +19,23 @@ ASSETS DEFINITIVOS (ya incluidos en esta carpeta, requeridos):
               y el sello superpuestos como elementos HTML independientes.
               sobre_src.png es el archivo original tal como se subió (antes
               de recortar transparencia); no lo usa el proyecto.
+- caja-cerrada.png / caja-abierta.png
+              Caja antigua para guardar cartas (nueva interacción): imagen
+              propia, independiente de mesa.png, recortada a sus bordes
+              opacos (fondo de estudio negro removido, mismo criterio que
+              sobre.png/sello.png). Se usa como .box-art dentro de
+              .box-stage: caja-cerrada.png es la que se ve apoyada sobre la
+              mesa en el estado "desk"; al hacer clic sobre ella y terminar
+              el acercamiento (estado "boxOpen"), script.js reemplaza el
+              src por caja-abierta.png. caja-cerrada_src.png /
+              caja-abierta_src.png son los archivos originales tal como se
+              subieron (foto de estudio completa, fondo negro sin recortar
+              ni recortar transparencia); no los usa el proyecto.
 
-Estos tres son parte del diseño final: si faltaran, se rompe la escena (la
+Estos cinco son parte del diseño final: si faltaran, se rompe la escena (la
 mesa quedaría en negro sin mesa.png; el sobre no se vería sin sobre.png; el
-botón del sello quedaría vacío sin sello.png, sin fallback de texto).
+botón del sello quedaría vacío sin sello.png, sin fallback de texto; la caja
+no se vería sin caja-cerrada.png/caja-abierta.png).
 
 ASSETS OPCIONALES (el proyecto funciona igual sin ellos):
 

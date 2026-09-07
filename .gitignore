@@ -1,0 +1,12 @@
+# Backend privado: no debe subirse nunca a GitHub. Contiene OWNER_TOKEN
+# (usado para distinguir "Manuel" de "Cande" del lado del servidor) y,
+# potencialmente, referencias de configuración que son sólo para uso
+# local/privado. El código que SÍ es público vive en index.html,
+# script.js y tracking.js (ninguno de los dos incluye el token real).
+google-apps-script/
+
+# Configuración local del editor (no la necesita GitHub Pages).
+.vscode/
+
+# Backups sueltos de archivos de trabajo: nunca se publican.
+*.bak*

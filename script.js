@@ -1,54 +1,16 @@
-/* ==========================================================================
-   RAINBOWLAND — Prólogo
-   Controla la secuencia completa:
-   dark → lighting → desk → approaching → lifting →
-   sealed → breaking → opening → revealing → reading.
-   Solo vanilla JS. Las animaciones viven en styles.css; este archivo mueve
-   el estado (body[data-state]) y agrega/quita clases auxiliares al sello.
-
-   iniciarEscenaCinematica(), más abajo, corre la intro (dark → lighting →
-   desk → approaching) y, apenas termina el acercamiento, pasa directo a
-   "sealed" (se salta "lifting" a propósito: no hay mano/animación de
-   levantar la carta). "sealed" es el estado de espera: sello habilitado,
-   con el texto "Toca el sello para abrir la carta" (#tapHint, ver
-   styles.css). Tocar el sello dispara iniciarSecuenciaCompleta(), que
-   resuelve el resto: ruptura del sello, apertura del sobre y el prólogo.
-
-   Nuevo en esta versión: iniciarRevelacionDeLuz() anima a mano, con
-   requestAnimationFrame, el "iris" de luz de #sceneReveal que se abre
-   desde la vela ya encendida de assets/mesa.png hacia el resto de la mesa,
-   en vez de un simple opacity 0→1 de toda la imagen. */
 
 (function () {
   "use strict";
 
-  /* ------------------------------------------------------------------
-   * CONFIGURACIÓN FÁCIL DE EDITAR
-   * ------------------------------------------------------------------ */
 
-  // true  -> siempre reproduce la animación completa al entrar (Modo A)
-  // false -> si ya se abrió antes, muestra el prólogo directamente (Modo B)
   const REPETIR_ANIMACION = true;
 
-  // true  -> antes del sobre, reproduce la intro cinematográfica nueva
-  //          (habitación oscura → luz → mesa → acercamiento → carta levantada)
-  // false -> comportamiento anterior: arranca directo en "sealed", con el
-  //          sobre ya centrado en pantalla (útil para comparar o depurar)
   const MOSTRAR_INTRO_CINEMATICA = true;
 
-  // Frase sutil que aparece justo antes de romper el sello.
   const FRASE_APERTURA = "Hay historias que esperan años para ser contadas.";
 
-  // Clave usada en localStorage para recordar que la carta ya fue abierta.
   const STORAGE_KEY = "rainbowland_prologo_abierto";
 
-  // ------------------------------------------------------------------
-  // MODO DEBUG DE LA INTRO: dejar en `true` para que cada fase dure varios
-  // segundos y sea imposible no percibirla mientras se ajusta la secuencia.
-  // Para ESTA prueba lo dejamos en `false`: TIEMPOS ya tiene los valores
-  // pedidos (2s de oscuridad, ~2s de encendido, 1,5s observando la mesa,
-  // 2,5s de acercamiento), que son los tiempos que hay que evaluar.
-  // ------------------------------------------------------------------
   const MODO_DEBUG_INTRO = false;
 
   const INTRO_DEBUG = {
@@ -59,37 +21,31 @@
     lifting: 2000,
   };
 
-  // Tiempos de la secuencia, en milisegundos. Ajustar acá para cambiar el
-  // ritmo de la animación sin tocar el resto del código.
   const TIEMPOS = {
-    // --- Intro cinematográfica (antes del sobre) ---
-    darkHold: 2000,          // ESTADO 1 — oscuridad total: 2 segundos
-    lightingRise: 2000,      // ESTADO 2 — encendido de la vela / revelado de la mesa: ~2 segundos
-    deskHold: 2500,          // ESTADO 3 — observar la mesa completa: ~1,5 segundos
-    approaching: 4500,       // ESTADO 4 — acercamiento de la cámara hacia la carta: ~2,5 segundos
-    liftingDelay: 150,       // (sin usar en esta prueba: pausa antes de despegar la carta)
-    lifting: 1300,           // (sin usar en esta prueba: duración de la carta levantándose)
-    toSealedDelay: 300,      // (sin usar en esta prueba: pausa final antes de habilitar el sello)
+    darkHold: 2000,
+    lightingRise: 2000,
+    deskHold: 2500,
+    approaching: 4500,
+    boxApproaching: 4500,
+    liftingDelay: 150,
+    lifting: 1300,
+    toSealedDelay: 300,
 
-    // --- Secuencia original: sello → sobre → hoja (sin cambios) ---
-    whisperFadeIn: 120,      // demora antes de mostrar la frase susurrada
-    whisperHold: 1000,       // cuánto se mantiene visible la frase
-    crackAppear: 520,        // duración de la grieta apareciendo
-    sealDetach: 560,         // duración del desprendimiento del sello
-    flapOpenDelay: 120,      // pausa breve antes de que la solapa empiece a abrirse
-    flapOpen: 1150,          // duración de la apertura de la solapa
-    letterRiseDelay: 250,    // pausa antes de que la hoja empiece a salir/crecer
-    letterRise: 1300,        // duración de la hoja creciendo hacia el lector
-    toReadingDelay: 250,     // pausa final antes de quedar en modo lectura
+    whisperFadeIn: 120,
+    whisperHold: 1000,
+    crackAppear: 520,
+    sealDetach: 560,
+    flapOpenDelay: 120,
+    flapOpen: 1150,
+    letterRiseDelay: 250,
+    letterRise: 1300,
+    toReadingDelay: 250,
   };
 
   if (MODO_DEBUG_INTRO) {
     Object.assign(TIEMPOS, INTRO_DEBUG);
   }
 
-  /* ------------------------------------------------------------------
-   * ESTADO Y REFERENCIAS DEL DOM
-   * ------------------------------------------------------------------ */
 
   const body = document.body;
   const sealBtn = document.getElementById("sealBtn");
@@ -100,28 +56,47 @@
   const reading = document.getElementById("reading");
   const titleMain = document.getElementById("titleMain");
   const musicaFondo = document.getElementById("musicaFondo");
+  const musicaCapitulos = document.getElementById("musicaCapitulos");
   const sndSello = document.getElementById("sndSello");
   const sndPapel = document.getElementById("sndPapel");
+
+  const envelopeStage = document.getElementById("envelopeStage");
+  const boxStage = document.getElementById("boxStage");
+  const boxArt = document.getElementById("boxArt");
+
+  const boxCardsHotspot = document.getElementById("boxCardsHotspot");
+  const boxBackToDesk = document.getElementById("boxBackToDesk");
+  const boxIndex = document.getElementById("boxIndex");
+  const boxIndexBack = document.getElementById("boxIndexBack");
+  const boxIndexPages = document.getElementById("boxIndexPages");
+  const boxIndexPrev = document.getElementById("boxIndexPrev");
+  const boxIndexNext = document.getElementById("boxIndexNext");
+  const boxIndexPagerLabel = document.getElementById("boxIndexPagerLabel");
+  const chapterReading = document.getElementById("chapterReading");
+  const chapterReadingBack = document.getElementById("chapterReadingBack");
+  const chapterPages = document.getElementById("chapterPages");
+  const prologueBackToDesk = document.getElementById("prologueBackToDesk");
 
   const prefersReducedMotion =
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  let hasOpened = false; // evita reactivar la secuencia con toques repetidos
+  let hasOpened = false;
 
   const ESTADOS = [
-    // Intro cinematográfica
     "dark",
     "lighting",
     "desk",
     "approaching",
     "lifting",
-    // Secuencia original (sin cambios)
     "sealed",
     "breaking",
     "opening",
     "revealing",
     "reading",
+    "boxApproaching",
+    "boxOpen",
+    "chapterReading",
   ];
 
   function setState(nombre) {
@@ -130,21 +105,23 @@
       return;
     }
     body.setAttribute("data-state", nombre);
-    // Log de depuración pedido explícitamente: permite comprobar en la
-    // consola que la secuencia pasa por TODOS los estados, sin saltearse
-    // ninguno, hasta llegar a "reading".
     console.log("ESTADO:", nombre);
   }
 
-  /* ------------------------------------------------------------------
-   * PERSISTENCIA (localStorage)
-   * ------------------------------------------------------------------ */
+  function registrarEvento(evento, datosExtra) {
+    try {
+      if (window.PRTracking && typeof window.PRTracking.track === "function") {
+        window.PRTracking.track(evento, datosExtra);
+      }
+    } catch (e) {
+    }
+  }
+
 
   function marcarComoAbierto() {
     try {
       localStorage.setItem(STORAGE_KEY, "true");
     } catch (e) {
-      /* localStorage puede fallar en navegación privada; no es crítico */
     }
   }
 
@@ -156,34 +133,19 @@
     }
   }
 
-  // Utilidad de prueba: borra el estado guardado para volver a experimentar
-  // la apertura completa. Disponible en consola como resetRainbowland().
   window.resetRainbowland = function resetRainbowland() {
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch (e) {
-      /* noop */
     }
     console.info(
       "[Rainbowland] Estado reiniciado. Recargá la página para ver la carta sellada nuevamente."
     );
   };
 
-  /* ------------------------------------------------------------------
-   * EMBLEMA DEL SELLO (assets/sello.png)
-   * sello.png es el recurso DEFINITIVO (zorro y ardilla): no hay ningún
-   * fallback de texto/letra si por algún motivo no cargara (a pedido
-   * explícito, se eliminó por completo la "R" y cualquier símbolo
-   * genérico que la reemplazara) — el botón simplemente se queda sin
-   * emblema visible en ese caso.
-   * ------------------------------------------------------------------ */
 
   function initSealEmblem() {
     if (!sealEmblem) return;
-    // El listener de error se ata ANTES de asignar el src (que viene de
-    // data-src) para no perder el evento cuando la imagen todavía no
-    // existe: si el navegador empezara a cargarla desde el HTML original,
-    // el 404 podría resolverse antes de que este script llegue a ejecutarse.
     sealEmblem.addEventListener("error", function () {
       sealEmblem.style.display = "none";
     });
@@ -191,47 +153,137 @@
     if (src) sealEmblem.src = src;
   }
 
-  /* ------------------------------------------------------------------
-   * SONIDO OPCIONAL
-   * Los navegadores móviles bloquean el audio automático: por eso solo
-   * se intenta reproducir dentro del propio gesto de toque del usuario.
-   * Si el archivo no existe o el navegador bloquea la reproducción, se
-   * ignora silenciosamente y la experiencia sigue funcionando igual.
-   * ------------------------------------------------------------------ */
 
-  // Música ambiental de prueba. Se intenta iniciar apenas carga la página,
-  // para que acompañe también la pantalla negra inicial. Si el navegador
-  // bloquea autoplay con sonido, queda armado un fallback que la inicia
-  // con la primera interacción del usuario (clic, toque o tecla).
-  function iniciarMusicaFondo() {
-    if (!musicaFondo) return;
+  const VOLUMEN_MUSICA = 0.28;
+  const DURACION_CROSSFADE = 2200;
+  const fadesMusica = new WeakMap();
 
-    musicaFondo.loop = true;
-    musicaFondo.volume = 0.28;
-
-    const intentar = function () {
-      try {
-        const p = musicaFondo.play();
-        if (p && typeof p.catch === "function") {
-          p.catch(function () {
-            /* autoplay bloqueado: el fallback de interacción lo resolverá */
-          });
-        }
-      } catch (e) {
-        /* noop */
+  function reproducirAudioSeguro(audio) {
+    if (!audio) return;
+    try {
+      const p = audio.play();
+      if (p && typeof p.catch === "function") {
+        p.catch(function () {
+        });
       }
-    };
+    } catch (e) {
+    }
+  }
 
-    intentar();
+  function cancelarFade(audio) {
+    if (!audio) return;
+    const id = fadesMusica.get(audio);
+    if (id) {
+      cancelAnimationFrame(id);
+      fadesMusica.delete(audio);
+    }
+  }
 
-    const desbloquear = function () {
-      if (!musicaFondo.paused) return;
-      intentar();
-    };
+  function fadeMusica(audio, volumenDestino, duracion, pausarAlFinal) {
+    if (!audio) return;
+    cancelarFade(audio);
 
-    document.addEventListener("pointerdown", desbloquear, { once: true });
-    document.addEventListener("touchstart", desbloquear, { once: true, passive: true });
-    document.addEventListener("keydown", desbloquear, { once: true });
+    const inicio = performance.now();
+    const volumenInicial = Number.isFinite(audio.volume) ? audio.volume : 0;
+    const destino = Math.max(0, Math.min(1, volumenDestino));
+
+    if (destino > 0 && audio.paused) reproducirAudioSeguro(audio);
+
+    function cuadro(ahora) {
+      const t = Math.min(1, (ahora - inicio) / Math.max(1, duracion));
+      const suavizado = t * t * (3 - 2 * t);
+      audio.volume = volumenInicial + (destino - volumenInicial) * suavizado;
+
+      if (t < 1) {
+        const id = requestAnimationFrame(cuadro);
+        fadesMusica.set(audio, id);
+      } else {
+        fadesMusica.delete(audio);
+        audio.volume = destino;
+        if (pausarAlFinal && destino === 0) {
+          try { audio.pause(); } catch (e) {  }
+        }
+      }
+    }
+
+    const id = requestAnimationFrame(cuadro);
+    fadesMusica.set(audio, id);
+  }
+
+  function usarMusicaFondo() {
+    if (musicaFondo) {
+      musicaFondo.loop = true;
+      if (musicaFondo.paused) reproducirAudioSeguro(musicaFondo);
+      fadeMusica(musicaFondo, VOLUMEN_MUSICA, DURACION_CROSSFADE, false);
+    }
+    if (musicaCapitulos) {
+      musicaCapitulos.loop = true;
+      fadeMusica(musicaCapitulos, 0, DURACION_CROSSFADE, true);
+    }
+  }
+
+  function usarMusicaCapitulos() {
+    if (musicaCapitulos) {
+      musicaCapitulos.loop = true;
+      if (musicaCapitulos.paused) reproducirAudioSeguro(musicaCapitulos);
+      fadeMusica(musicaCapitulos, VOLUMEN_MUSICA, DURACION_CROSSFADE, false);
+    }
+    if (musicaFondo) {
+      fadeMusica(musicaFondo, 0, DURACION_CROSSFADE, true);
+    }
+  }
+
+  function iniciarMusicaFondo() {
+    if (musicaFondo) {
+      musicaFondo.loop = true;
+      musicaFondo.volume = VOLUMEN_MUSICA;
+    }
+    if (musicaCapitulos) {
+      musicaCapitulos.loop = true;
+      musicaCapitulos.volume = 0;
+    }
+
+    function musicaCorrespondiente() {
+      const estado = body.getAttribute("data-state");
+      if (estado === "boxApproaching" || estado === "boxOpen" || estado === "chapterReading") {
+        return musicaCapitulos;
+      }
+      return musicaFondo;
+    }
+
+    function quitarDesbloqueo() {
+      document.removeEventListener("touchend", intentarReproducir, true);
+      document.removeEventListener("pointerup", intentarReproducir, true);
+      document.removeEventListener("click", intentarReproducir, true);
+      document.removeEventListener("keydown", intentarReproducir, true);
+    }
+
+    function intentarReproducir() {
+      const estado = body.getAttribute("data-state");
+
+      if (estado === "boxApproaching" || estado === "boxOpen" || estado === "chapterReading") {
+        usarMusicaCapitulos();
+      } else {
+        usarMusicaFondo();
+      }
+
+      const audioObjetivo = musicaCorrespondiente();
+      if (!audioObjetivo) {
+        quitarDesbloqueo();
+        return;
+      }
+
+      window.setTimeout(function () {
+        if (!audioObjetivo.paused) quitarDesbloqueo();
+      }, 0);
+    }
+
+    intentarReproducir();
+
+    document.addEventListener("touchend", intentarReproducir, true);
+    document.addEventListener("pointerup", intentarReproducir, true);
+    document.addEventListener("click", intentarReproducir, true);
+    document.addEventListener("keydown", intentarReproducir, true);
   }
 
   function reproducirSonido(elementoAudio) {
@@ -241,28 +293,13 @@
       const promesa = elementoAudio.play();
       if (promesa && typeof promesa.catch === "function") {
         promesa.catch(function () {
-          /* archivo ausente o reproducción bloqueada: sin problema */
         });
       }
     } catch (e) {
-      /* noop */
     }
   }
 
-  /* ------------------------------------------------------------------
-   * REVELADO DE LUZ (estado "lighting")
-   * Abre #sceneReveal como un iris: un círculo de radio creciente,
-   * centrado en la vela ya encendida de assets/mesa.png (--candle-x/
-   * --candle-y en styles.css), que deja ver la mesa real progresivamente
-   * en vez de un simple opacity 0→1 de toda la imagen. El radio se anima
-   * a mano con requestAnimationFrame porque el degradado en sí (con sus
-   * paradas de color) no se puede animar de forma confiable con una
-   * transición CSS de "background".
-   * ------------------------------------------------------------------ */
 
-  // Lee --candle-x/--candle-y desde styles.css para no duplicar esas
-  // coordenadas acá: si el punto de la vela cambia, alcanza con tocar el
-  // CSS.
   function leerPorcentajeCSS(nombreVariable, valorPorDefecto) {
     try {
       const crudo = getComputedStyle(document.documentElement)
@@ -280,13 +317,6 @@
 
   let revelacionRAF = null;
 
-  // Ease-in marcado (t³): como la vela está cerca de una esquina de la
-  // pantalla, un radio relativamente chico ya alcanza a cubrir la carta y
-  // la mayor parte de la mesa (todo eso está más cerca de la vela que la
-  // esquina opuesta). Para que la expansión se siga viendo ocurrir durante
-  // los ~2 segundos completos —en vez de "terminar" a los pocos cientos de
-  // milisegundos— el radio crece muy despacio al principio y recién se
-  // acelera hacia el final del recorrido.
   function easeInCubic(t) {
     return t * t * t;
   }
@@ -295,9 +325,6 @@
     if (!sceneReveal) return;
     if (revelacionRAF) cancelAnimationFrame(revelacionRAF);
 
-    // El radio final excede la diagonal de la pantalla con margen, para
-    // que al terminar quede TODA la mesa revelada, sin bordes oscuros
-    // residuales en las esquinas.
     const radioMaximo = Math.hypot(window.innerWidth, window.innerHeight) * 1.05;
     const radioInicial = Math.max(4, radioMaximo * 0.006);
     const inicio = Date.now();
@@ -309,12 +336,6 @@
       const t = Math.min(1, duracionMs > 0 ? transcurrido / duracionMs : 1);
       const avance = easeInCubic(t);
       const radio = radioInicial + (radioMaximo - radioInicial) * avance;
-      // El borde de la luz (rgba intermedio) y el negro opaco se calculan
-      // como un margen PROPORCIONAL al radio ya revelado (con un mínimo muy
-      // chico), para que el halo sea diminuto cuando la luz recién nace y
-      // se ensanche naturalmente a medida que crece — en vez de arrancar
-      // ya con un halo ancho fijo, que haría ver "grande" a la llama desde
-      // el primer cuadro.
       const borde = radio + Math.max(16, radio * 0.4);
       const opaco = radio + Math.max(46, radio * 1.05);
 
@@ -328,8 +349,6 @@
         revelacionRAF = requestAnimationFrame(cuadro);
       } else {
         revelacionRAF = null;
-        // Totalmente revelado: se retira del todo (ver también la red de
-        // seguridad puramente en CSS para body[data-state] != dark/lighting).
         window.setTimeout(function () {
           sceneReveal.style.opacity = "0";
         }, 60);
@@ -339,38 +358,16 @@
     revelacionRAF = requestAnimationFrame(cuadro);
   }
 
-  /* ------------------------------------------------------------------
-   * INTRO CINEMATOGRÁFICA (antes del sobre)
-   * VERSIÓN DE PRUEBA: dark → lighting → desk → approaching, y ahí se
-   * congela (ver más abajo). Puramente secuencial y basada en estados:
-   * cada paso solo mueve body[data-state] hacia adelante; las animaciones
-   * en sí (revelado de luz, cámara acercándose) viven en styles.css,
-   * salvo el iris de #sceneReveal que anima iniciarRevelacionDeLuz().
-   * ------------------------------------------------------------------ */
 
   function habilitarSello() {
     if (!sealBtn) {
-      // Si esto llegara a imprimirse, sealBtn no existía cuando se pidió
-      // el getElementById de más arriba (ver referencias del DOM): el
-      // click nunca podría funcionar. No debería pasar (el <script> está
-      // al final del <body>, después del botón), pero se deja el chequeo
-      // explícito en vez de fallar en silencio.
       console.warn("[Rainbowland] habilitarSello(): #sealBtn no existe en el DOM");
       return;
     }
-    // Basta con esto: la visibilidad de #tapHint depende únicamente de
-    // body[data-state="sealed"] en styles.css, no de estilos puestos a
-    // mano desde JS (eso solo agrega otro lugar donde algo puede quedar
-    // desincronizado).
     sealBtn.disabled = false;
     console.log("SELLO HABILITADO");
   }
 
-  // prefers-reduced-motion NUNCA saltea la intro cinematográfica: la persona
-  // sigue viendo oscuridad → luz → mesa → acercamiento → carta levantándose,
-  // en ese orden. Lo único que cambia es que cada fase dura menos (los
-  // movimientos grandes de cámara y de la carta también se acortan en
-  // styles.css, dentro de @media (prefers-reduced-motion: reduce)).
   const FACTOR_REDUCIDO = 0.45;
   const ESPERA_MINIMA = 150;
 
@@ -381,48 +378,539 @@
 
   function iniciarEscenaCinematica() {
     if (!MOSTRAR_INTRO_CINEMATICA) {
-      // Solo para comparar/depurar: se omite toda la intro y se arranca
-      // directo en "sealed", como en la versión anterior del proyecto.
-      setState("sealed");
-      habilitarSello();
+      setState("desk");
+      habilitarInteraccionMesa();
       return;
     }
 
-    setState("dark"); // ESTADO 1 — pantalla completamente negra (2s)
+    setState("dark");
 
     window.setTimeout(function () {
-      setState("lighting"); // ESTADO 2 — se enciende la vela: la luz revela la mesa
+      setState("lighting");
       iniciarRevelacionDeLuz(espera(TIEMPOS.lightingRise));
 
       window.setTimeout(function () {
-        setState("desk"); // ESTADO 3 — se observa la mesa completa, con la carta apoyada
+        setState("desk");
 
-        window.setTimeout(function () {
-          setState("approaching"); // ESTADO 4 — la cámara se acerca a la carta
-
-          // BUG que impedía que funcionara todo lo que sigue: esta versión
-          // se quedaba "congelada" acá a propósito (era una prueba visual
-          // de solo la intro) y el resto de la secuencia — pasar a
-          // "sealed", habilitar el sello, etc. — quedaba comentado más
-          // abajo, sin ejecutarse NUNCA. Por eso sealBtn.disabled nunca
-          // pasaba a false (seguía true por default, como en el HTML) y
-          // #tapHint nunca aparecía: no es que algo fallara al hacer
-          // click, es que la cadena de setTimeout ni siquiera llegaba a
-          // "sealed". Se saltea "lifting" a propósito (no se pidió ninguna
-          // animación de mano levantando la carta): al terminar
-          // "approaching" se pasa directo a "sealed".
-          window.setTimeout(function () {
-            setState("sealed"); // ESTADO 5 — la carta espera, sello habilitado
-            habilitarSello();
-          }, espera(TIEMPOS.approaching));
-        }, espera(TIEMPOS.deskHold));
+        habilitarInteraccionMesa();
       }, espera(TIEMPOS.lightingRise));
     }, espera(TIEMPOS.darkHold));
   }
 
-  /* ------------------------------------------------------------------
-   * SECUENCIA DE APERTURA
-   * ------------------------------------------------------------------ */
+
+  let mesaResuelta = false;
+
+  function habilitarInteraccionMesa() {
+    mesaResuelta = false;
+    if (envelopeStage) envelopeStage.setAttribute("aria-disabled", "false");
+    if (boxStage) boxStage.setAttribute("aria-disabled", "false");
+  }
+
+  function deshabilitarInteraccionMesa() {
+    if (envelopeStage) envelopeStage.setAttribute("aria-disabled", "true");
+    if (boxStage) boxStage.setAttribute("aria-disabled", "true");
+  }
+
+  function iniciarZoomCarta() {
+    if (mesaResuelta || body.getAttribute("data-state") !== "desk") return;
+    mesaResuelta = true;
+    deshabilitarInteraccionMesa();
+    usarMusicaFondo();
+
+    setState("approaching");
+
+    window.setTimeout(function () {
+      setState("sealed");
+      habilitarSello();
+    }, espera(TIEMPOS.approaching));
+  }
+
+  function iniciarZoomCaja() {
+    if (mesaResuelta || body.getAttribute("data-state") !== "desk") return;
+    mesaResuelta = true;
+    deshabilitarInteraccionMesa();
+
+    if (musicaCapitulos) {
+      cancelarFade(musicaCapitulos);
+      musicaCapitulos.loop = true;
+      musicaCapitulos.volume = 0;
+      reproducirAudioSeguro(musicaCapitulos);
+    }
+
+    setState("boxApproaching");
+
+    window.setTimeout(function () {
+      setState("boxOpen");
+      if (boxArt) {
+        boxArt.src = "assets/caja-abierta.png";
+      }
+
+      usarMusicaCapitulos();
+
+      habilitarCartasDeLaCaja();
+      registrarEvento("box_open");
+    }, espera(TIEMPOS.boxApproaching));
+  }
+
+  function initInteraccionMesa() {
+    if (envelopeStage) {
+      envelopeStage.addEventListener("click", iniciarZoomCarta);
+      envelopeStage.addEventListener("keydown", function (evento) {
+        if (evento.key === "Enter" || evento.key === " ") {
+          evento.preventDefault();
+          iniciarZoomCarta();
+        }
+      });
+    }
+
+    if (boxStage) {
+      boxStage.addEventListener("click", iniciarZoomCaja);
+      boxStage.addEventListener("keydown", function (evento) {
+        if (evento.key === "Enter" || evento.key === " ") {
+          evento.preventDefault();
+          iniciarZoomCaja();
+        }
+      });
+    }
+  }
+
+
+
+
+  function ahoraCapitulos() {
+    return Date.now();
+  }
+
+  const ROMANOS_CAPITULOS = [
+    "I", "II", "III", "IV", "V", "VI", "VII", "VIII",
+    "IX", "X", "XI", "XII", "XIII", "XIV", "XV",
+  ];
+
+  const ORDINALES_CAPITULOS = [
+    "PRIMERO", "SEGUNDO", "TERCERO", "CUARTO", "QUINTO",
+    "SEXTO", "SÉPTIMO", "OCTAVO", "NOVENO", "DÉCIMO",
+    "UNDÉCIMO", "DUODÉCIMO", "DECIMOTERCERO", "DECIMOCUARTO", "DECIMOQUINTO",
+  ];
+
+
+  const CAPITULOS_BACKEND_URL = "https://script.google.com/macros/s/AKfycbxNkP8OKmKx8dBGTPItqtMR2ICWiWSjtvshlAI5L1Cs-OWExIvAcA0Y7_GDOO1bPO17/exec";
+
+  const capitulos = [
+    { numero: 1, fecha: "2026-09-12T15:00:00-03:00" },
+    { numero: 2, fecha: "2026-09-19T15:00:00-03:00" },
+    { numero: 3, fecha: "2026-09-26T15:00:00-03:00" },
+    { numero: 4, fecha: "2026-10-03T15:00:00-03:00" },
+    { numero: 5, fecha: "2026-10-10T15:00:00-03:00" },
+    { numero: 6, fecha: "2026-10-17T15:00:00-03:00" },
+    { numero: 7, fecha: "2026-10-24T15:00:00-03:00" },
+    { numero: 8, fecha: "2026-10-31T15:00:00-03:00" },
+    { numero: 9, fecha: "2026-11-07T15:00:00-03:00" },
+    { numero: 10, fecha: "2026-11-14T15:00:00-03:00" },
+    { numero: 11, fecha: "2026-11-21T15:00:00-03:00" },
+    { numero: 12, fecha: "2026-11-28T15:00:00-03:00" },
+    { numero: 13, fecha: "2026-12-05T15:00:00-03:00" },
+    { numero: 14, fecha: "2026-12-12T15:00:00-03:00" },
+    { numero: 15, fecha: "2026-12-19T15:00:00-03:00" },
+  ];
+
+  function calcularEstadoCapitulos() {
+    const ahora = ahoraCapitulos();
+    let proximoYaAsignado = false;
+    return capitulos.map(function (cap) {
+      const fechaMs = new Date(cap.fecha).getTime();
+      let estado;
+      if (fechaMs <= ahora) {
+        estado = "disponible";
+      } else if (!proximoYaAsignado) {
+        estado = "proximo";
+        proximoYaAsignado = true;
+      } else {
+        estado = "sellado";
+      }
+      return {
+        numero: cap.numero,
+        fecha: cap.fecha,
+        fechaMs: fechaMs,
+        estado: estado,
+      };
+    });
+  }
+
+  function formatoContadorCapitulo(diferenciaMs) {
+    if (diferenciaMs <= 0) return "";
+    const segundosTotales = Math.floor(diferenciaMs / 1000);
+    const dias = Math.floor(segundosTotales / 86400);
+    const horas = Math.floor((segundosTotales % 86400) / 3600);
+    const minutos = Math.floor((segundosTotales % 3600) / 60);
+    const segundos = segundosTotales % 60;
+    return (
+      dias + " días · " +
+      String(horas).padStart(2, "0") + " horas · " +
+      String(minutos).padStart(2, "0") + " minutos · " +
+      String(segundos).padStart(2, "0") + " segundos"
+    );
+  }
+
+
+  const CAPITULOS_POR_PAGINA = 5;
+  let boxIndexPaginaActual = 0;
+  let ultimoResumenEstados = null;
+
+  function resumenEstados(estados) {
+    return estados.map(function (c) { return c.numero + ":" + c.estado; }).join(",");
+  }
+
+  function crearChapterTile(cap) {
+    const romano = ROMANOS_CAPITULOS[cap.numero - 1] || String(cap.numero);
+    const ordinal = ORDINALES_CAPITULOS[cap.numero - 1] || "";
+
+    const article = document.createElement("article");
+    article.className = "chapter-tile chapter-tile--" + cap.estado;
+    article.setAttribute("data-numero", String(cap.numero));
+
+    let interior =
+      '<span class="chapter-tile-seal" aria-hidden="true">' +
+        '<span class="chapter-tile-numero">' + romano + "</span>" +
+      "</span>" +
+      '<h3 class="chapter-tile-heading">Capítulo ' + ordinal + "</h3>";
+
+    if (cap.estado === "disponible") {
+      interior += '<p class="chapter-tile-estado">Disponible</p>';
+      article.tabIndex = 0;
+      article.setAttribute("role", "button");
+      article.setAttribute("aria-label", "Leer capítulo " + romano);
+    } else if (cap.estado === "proximo") {
+      interior +=
+        '<p class="chapter-tile-mensaje">Esta carta llegará en…</p>' +
+        '<p class="chapter-tile-contador" data-numero="' + cap.numero + '">' +
+          formatoContadorCapitulo(cap.fechaMs - ahoraCapitulos()) +
+        "</p>";
+      article.setAttribute("aria-label", "Capítulo " + romano + ", todavía sellado, en camino");
+    } else {
+      interior += '<p class="chapter-tile-mensaje">Esta carta aún permanece sellada.</p>';
+      article.setAttribute("aria-label", "Capítulo " + romano + ", sellado");
+    }
+
+    article.innerHTML = interior;
+
+    if (cap.estado === "disponible") {
+      const abrir = function () { abrirCapitulo(cap.numero); };
+      article.addEventListener("click", abrir);
+      article.addEventListener("keydown", function (evento) {
+        if (evento.key === "Enter" || evento.key === " ") {
+          evento.preventDefault();
+          abrir();
+        }
+      });
+    }
+
+    return article;
+  }
+
+  function renderBoxIndex() {
+    if (!boxIndexPages) return;
+    const estados = calcularEstadoCapitulos();
+    ultimoResumenEstados = resumenEstados(estados);
+
+    const totalPaginas = Math.ceil(capitulos.length / CAPITULOS_POR_PAGINA);
+    if (boxIndexPaginaActual >= totalPaginas) boxIndexPaginaActual = totalPaginas - 1;
+    if (boxIndexPaginaActual < 0) boxIndexPaginaActual = 0;
+
+    boxIndexPages.innerHTML = "";
+    for (let p = 0; p < totalPaginas; p++) {
+      const pagina = document.createElement("div");
+      pagina.className = "box-index-page";
+      pagina.setAttribute("data-pagina", String(p));
+      if (p !== boxIndexPaginaActual) pagina.hidden = true;
+
+      const inicio = p * CAPITULOS_POR_PAGINA;
+      estados.slice(inicio, inicio + CAPITULOS_POR_PAGINA).forEach(function (cap) {
+        pagina.appendChild(crearChapterTile(cap));
+      });
+      boxIndexPages.appendChild(pagina);
+    }
+
+    if (boxIndexPagerLabel) {
+      const romanoPagina = ROMANOS_CAPITULOS[boxIndexPaginaActual] || String(boxIndexPaginaActual + 1);
+      const romanoTotal = ROMANOS_CAPITULOS[totalPaginas - 1] || String(totalPaginas);
+      boxIndexPagerLabel.textContent = "Página " + romanoPagina + " de " + romanoTotal;
+    }
+    if (boxIndexPrev) boxIndexPrev.disabled = boxIndexPaginaActual === 0;
+    if (boxIndexNext) boxIndexNext.disabled = boxIndexPaginaActual >= totalPaginas - 1;
+  }
+
+  function mostrarPaginaIndice(numeroPagina) {
+    boxIndexPaginaActual = numeroPagina;
+    renderBoxIndex();
+  }
+
+  function tickBoxIndex() {
+    if (!boxIndex || !boxIndex.classList.contains("is-open")) return;
+    const estados = calcularEstadoCapitulos();
+    const resumen = resumenEstados(estados);
+    if (resumen !== ultimoResumenEstados) {
+      renderBoxIndex();
+      return;
+    }
+    const proximo = estados.find(function (c) { return c.estado === "proximo"; });
+    if (!proximo || !boxIndexPages) return;
+    const contadorEl = boxIndexPages.querySelector(
+      '.chapter-tile-contador[data-numero="' + proximo.numero + '"]'
+    );
+    if (contadorEl) {
+      contadorEl.textContent = formatoContadorCapitulo(proximo.fechaMs - ahoraCapitulos());
+    }
+  }
+
+  window.setInterval(tickBoxIndex, 1000);
+
+
+  function habilitarCartasDeLaCaja() {
+    if (boxCardsHotspot) boxCardsHotspot.disabled = false;
+  }
+
+  function deshabilitarCartasDeLaCaja() {
+    if (boxCardsHotspot) boxCardsHotspot.disabled = true;
+  }
+
+  function abrirBoxIndex(paginaInicial) {
+    if (body.getAttribute("data-state") !== "boxOpen") return;
+    boxIndexPaginaActual = typeof paginaInicial === "number" ? paginaInicial : 0;
+    renderBoxIndex();
+    if (boxIndex) {
+      boxIndex.classList.add("is-open");
+      boxIndex.removeAttribute("aria-hidden");
+    }
+    if (boxStage) boxStage.classList.add("is-dimmed");
+    deshabilitarCartasDeLaCaja();
+  }
+
+  function cerrarBoxIndex() {
+    if (boxIndex) {
+      boxIndex.classList.remove("is-open");
+      boxIndex.setAttribute("aria-hidden", "true");
+    }
+    if (boxStage) boxStage.classList.remove("is-dimmed");
+    if (body.getAttribute("data-state") === "boxOpen") {
+      habilitarCartasDeLaCaja();
+    }
+  }
+
+  function volverALaMesaDesdeCaja() {
+    if (body.getAttribute("data-state") !== "boxOpen") return;
+    registrarEvento("return_desk");
+    cerrarBoxIndex();
+    if (boxArt) boxArt.src = "assets/caja-cerrada.png";
+    deshabilitarCartasDeLaCaja();
+    usarMusicaFondo();
+    setState("desk");
+    habilitarInteraccionMesa();
+  }
+
+
+  function crearHojaCapitulo(numero) {
+    const page = document.createElement("article");
+    page.className = "page";
+    page.setAttribute("data-page", String(numero));
+    page.innerHTML =
+      '<div class="page-corner page-corner--tl" aria-hidden="true">❦</div>' +
+      '<div class="page-corner page-corner--tr" aria-hidden="true">❦</div>' +
+      '<div class="page-corner page-corner--bl" aria-hidden="true">❦</div>' +
+      '<div class="page-corner page-corner--br" aria-hidden="true">❦</div>' +
+      '<div class="page-content"></div>' +
+      '<div class="page-number" aria-hidden="true">' + numero + "</div>";
+    return page;
+  }
+
+  function paginarHojaCapitulo(fuenteHTML) {
+    if (!chapterPages) return;
+    chapterPages.innerHTML = "";
+
+    const fuente = document.createElement("div");
+    fuente.innerHTML = fuenteHTML;
+    const elementos = Array.from(fuente.children);
+
+    let numeroPagina = 1;
+    let page = crearHojaCapitulo(numeroPagina);
+    chapterPages.appendChild(page);
+    let contenido = page.querySelector(".page-content");
+
+    elementos.forEach(function (elemento) {
+      contenido.appendChild(elemento);
+      if (contenido.scrollHeight > contenido.clientHeight + 1) {
+        contenido.removeChild(elemento);
+        numeroPagina += 1;
+        page = crearHojaCapitulo(numeroPagina);
+        chapterPages.appendChild(page);
+        contenido = page.querySelector(".page-content");
+        contenido.appendChild(elemento);
+      }
+    });
+  }
+
+  function repaginarCapituloConEspera(fuenteHTML) {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        paginarHojaCapitulo(fuenteHTML);
+      });
+    });
+  }
+
+  function construirHTMLCapitulo(cap) {
+    const romano = ROMANOS_CAPITULOS[cap.numero - 1] || String(cap.numero);
+    const tituloHTML = cap.titulo
+      ? '<p class="chapter-reading-titulo">' + cap.titulo + "</p>"
+      : "";
+    return (
+      '<h1 class="chapter-reading-numero">' + romano + "</h1>" +
+      tituloHTML +
+      '<div class="story-divider" aria-hidden="true">❦</div>' +
+      cap.contenido
+    );
+  }
+
+  let boxIndexPaginaDeRetorno = 0;
+  let capituloActualHTML = "";
+
+  function pedirCapituloAlBackend(numero) {
+    const url = CAPITULOS_BACKEND_URL + "?action=chapter&n=" + encodeURIComponent(numero);
+    return fetch(url)
+      .then(function (resp) { return resp.json(); })
+      .then(function (data) {
+        if (data && data.ok && typeof data.contenido === "string" && data.contenido) {
+          return { numero: data.numero || numero, titulo: data.titulo || "", contenido: data.contenido };
+        }
+        return null;
+      })
+      .catch(function () {
+        return null;
+      });
+  }
+
+  function abrirCapitulo(numero) {
+    const cap = calcularEstadoCapitulos().find(function (c) { return c.numero === numero; });
+    if (!cap || cap.estado !== "disponible") return;
+
+    registrarEvento("chapter_open", { capitulo: numero });
+
+    boxIndexPaginaDeRetorno = boxIndexPaginaActual;
+
+    cerrarBoxIndex();
+
+    capituloActualHTML = construirHTMLCapitulo({ numero: numero, titulo: "", contenido: "<p>Cargando…</p>" });
+    repaginarCapituloConEspera(capituloActualHTML);
+    setState("chapterReading");
+
+    if (chapterReading) {
+      chapterReading.removeAttribute("aria-hidden");
+      chapterReading.setAttribute("tabindex", "-1");
+      try {
+        chapterReading.focus({ preventScroll: true });
+      } catch (e) {
+        chapterReading.focus();
+      }
+    }
+    if (scene) scene.setAttribute("aria-hidden", "true");
+
+    pedirCapituloAlBackend(numero).then(function (capReal) {
+      if (body.getAttribute("data-state") !== "chapterReading") return;
+
+      if (capReal) {
+        capituloActualHTML = construirHTMLCapitulo(capReal);
+      } else {
+        capituloActualHTML = construirHTMLCapitulo({
+          numero: numero,
+          titulo: "",
+          contenido: "<p>No se pudo abrir este capítulo en este momento. Volvé a intentarlo en un rato.</p>",
+        });
+      }
+      repaginarCapituloConEspera(capituloActualHTML);
+    });
+  }
+
+  function cerrarLecturaCapitulo() {
+    if (body.getAttribute("data-state") !== "chapterReading") return;
+    if (chapterReading) chapterReading.setAttribute("aria-hidden", "true");
+    if (scene) scene.removeAttribute("aria-hidden");
+    setState("boxOpen");
+    abrirBoxIndex(boxIndexPaginaDeRetorno);
+  }
+
+  function volverALaMesaDesdePrologo() {
+    if (body.getAttribute("data-state") !== "reading") return;
+    registrarEvento("return_desk");
+
+    if (reading) reading.setAttribute("aria-hidden", "true");
+    if (scene) {
+      scene.style.display = "";
+      scene.removeAttribute("aria-hidden");
+    }
+
+    hasOpened = false;
+    if (sealBtn) {
+      sealBtn.disabled = true;
+      sealBtn.setAttribute("aria-label", "Abrir la carta");
+      sealBtn.classList.remove("is-cracking", "is-detaching");
+    }
+    if (whisper) whisper.classList.remove("is-visible");
+    if (boxArt) boxArt.src = "assets/caja-cerrada.png";
+    deshabilitarCartasDeLaCaja();
+    usarMusicaFondo();
+
+    setState("desk");
+    habilitarInteraccionMesa();
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
+  function initCapitulos() {
+    if (boxCardsHotspot) {
+      boxCardsHotspot.addEventListener("click", function () {
+        abrirBoxIndex(0);
+      });
+    }
+    if (boxBackToDesk) {
+      boxBackToDesk.addEventListener("click", volverALaMesaDesdeCaja);
+    }
+    if (boxIndexBack) {
+      boxIndexBack.addEventListener("click", cerrarBoxIndex);
+    }
+    if (boxIndexPrev) {
+      boxIndexPrev.addEventListener("click", function () {
+        if (boxIndexPaginaActual > 0) mostrarPaginaIndice(boxIndexPaginaActual - 1);
+      });
+    }
+    if (boxIndexNext) {
+      boxIndexNext.addEventListener("click", function () {
+        const totalPaginas = Math.ceil(capitulos.length / CAPITULOS_POR_PAGINA);
+        if (boxIndexPaginaActual < totalPaginas - 1) mostrarPaginaIndice(boxIndexPaginaActual + 1);
+      });
+    }
+    if (chapterReadingBack) {
+      chapterReadingBack.addEventListener("click", cerrarLecturaCapitulo);
+    }
+    if (prologueBackToDesk) {
+      prologueBackToDesk.addEventListener("click", volverALaMesaDesdePrologo);
+    }
+
+    let resizeTimerCapitulo;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimerCapitulo);
+      resizeTimerCapitulo = setTimeout(function () {
+        if (body.getAttribute("data-state") === "chapterReading" && capituloActualHTML) {
+          paginarHojaCapitulo(capituloActualHTML);
+        }
+      }, 180);
+    });
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(function () {
+        if (body.getAttribute("data-state") === "chapterReading" && capituloActualHTML) {
+          paginarHojaCapitulo(capituloActualHTML);
+        }
+      });
+    }
+  }
+
 
   function mostrarSusurro() {
     whisper.textContent = FRASE_APERTURA;
@@ -451,22 +939,14 @@
   }
 
   function iniciarSecuenciaCompleta() {
-    // Log de depuración pedido explícitamente: se imprime SIEMPRE que se
-    // hace click/Enter/Espacio sobre el sello, incluso si el guard de
-    // abajo corta la ejecución — así se puede distinguir "el click no
-    // llega" de "el click llega pero el sello todavía está deshabilitado".
     console.log("CLICK SELLO", "(hasOpened=" + hasOpened + ", disabled=" + sealBtn.disabled + ")");
 
-    // sealBtn.disabled cubre tanto los toques repetidos como cualquier
-    // intento de abrir el sello mientras todavía corre la intro
-    // cinematográfica (dark/lighting/desk/approaching/lifting).
     if (hasOpened || sealBtn.disabled) return;
     hasOpened = true;
     sealBtn.disabled = true;
     sealBtn.setAttribute("aria-label", "Abriendo la carta");
 
     if (prefersReducedMotion) {
-      // Movimiento mínimo: vamos directo a lectura con una transición corta.
       reproducirSonido(sndSello);
       setState("revealing");
       prepararLecturaParaAsistivos();
@@ -474,30 +954,26 @@
         setState("reading");
         marcarComoAbierto();
         enfocarTitulo();
+        registrarEvento("prologue_open");
       }, 250);
       return;
     }
 
-    // Fase 0 — susurro
     mostrarSusurro();
 
     window.setTimeout(function () {
-      // Fase 1 — el sello se agrieta
       setState("breaking");
       sealBtn.classList.add("is-cracking");
       reproducirSonido(sndSello);
 
       window.setTimeout(function () {
         ocultarSusurro();
-        // el sello se desprende
         sealBtn.classList.add("is-detaching");
 
         window.setTimeout(function () {
-          // Fase 2 — se abre la solapa
           setState("opening");
 
           window.setTimeout(function () {
-            // Fase 3 — la hoja sale y crece hacia el lector
             reproducirSonido(sndPapel);
             setState("revealing");
             prepararLecturaParaAsistivos();
@@ -506,6 +982,7 @@
               setState("reading");
               marcarComoAbierto();
               enfocarTitulo();
+              registrarEvento("prologue_open");
             }, TIEMPOS.letterRise + TIEMPOS.toReadingDelay);
           }, TIEMPOS.flapOpenDelay);
         }, TIEMPOS.sealDetach);
@@ -513,9 +990,6 @@
     }, TIEMPOS.whisperFadeIn);
   }
 
-  /* ------------------------------------------------------------------
-   * MODO DIRECTO (visita repetida, REPETIR_ANIMACION = false)
-   * ------------------------------------------------------------------ */
 
   function mostrarPrologoDirectamente() {
     hasOpened = true;
@@ -523,13 +997,9 @@
     scene.setAttribute("aria-hidden", "true");
     reading.removeAttribute("aria-hidden");
     body.setAttribute("data-state", "reading");
+    registrarEvento("prologue_open");
   }
 
-  /* ------------------------------------------------------------------
-   * INTERACCIÓN TÁCTIL: evitar doble-tap-zoom accidental sobre el sello
-   * mientras se dispara la secuencia, sin desactivar el zoom del resto
-   * de la página (importante para accesibilidad).
-   * ------------------------------------------------------------------ */
 
   function initTapProtegido() {
     let ultimoToque = 0;
@@ -563,16 +1033,15 @@
     });
   }
 
-  
 
-  /* ------------------------------------------------------------------
-   * INICIALIZACIÓN
-   * ------------------------------------------------------------------ */
+
 
   function init() {
     iniciarMusicaFondo();
     initSealEmblem();
     initTapProtegido();
+    initInteraccionMesa();
+    initCapitulos();
 
     sealBtn.addEventListener("click", iniciarSecuenciaCompleta);
     sealBtn.addEventListener(
@@ -586,8 +1055,6 @@
     );
 
     if (!REPETIR_ANIMACION && yaFueAbiertoAntes()) {
-      // Modo B con visita repetida: se salta tanto la intro cinematográfica
-      // como la apertura del sobre, directo al prólogo.
       mostrarPrologoDirectamente();
     } else {
       iniciarEscenaCinematica();

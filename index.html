@@ -7,7 +7,6 @@
 <meta name="description" content="Una carta antigua y sellada, esperando a ser abierta. Introducción al prólogo de Rainbowland." />
 <meta name="theme-color" content="#0b0906" />
 
-<!-- Tipografías: título ornamentado, subtítulo clásico, cuerpo muy legible -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Petit+Formal+Script&display=swap" rel="stylesheet">
@@ -15,9 +14,6 @@
 <link rel="stylesheet" href="styles.css" />
 
 <style id="paginationStyles">
-  /* =========================================================
-     LECTURA PAGINADA EN VARIAS HOJAS
-     ========================================================= */
 
   .reading-scroll {
     width: 100%;
@@ -58,7 +54,6 @@
         #6a3412 100%
       );
 
-    /* Irregularidad leve: hoja antigua, sin picos gigantes */
     clip-path: polygon(
       1% .8%,
       8% .25%,
@@ -285,76 +280,26 @@
 
   <div id="app">
 
-    <!-- ================= ESCENA: INTRO CINEMATOGRÁFICA (PRUEBA) =================
-         Estados definidos, en orden: dark → lighting → desk → approaching → lifting →
-         sealed → breaking → opening → revealing → reading.
-
-         VERSIÓN DE PRUEBA ACTUAL: la secuencia SOLO corre hasta "approaching" y
-         ahí se congela (ver iniciarEscenaCinematica en script.js). Todo lo que
-         sigue después (lifting → sealed → ... → reading, es decir: la mano/
-         levantamiento de la carta, la apertura del sello y del sobre, la hoja y
-         el prólogo) permanece en el código, sin usarse todavía, para retomarlo
-         en una próxima etapa una vez aprobado este primer tramo visual. -->
     <section class="scene" id="scene" aria-label="Escena de apertura de la carta de Rainbowland">
 
-      <!-- ESCENARIO DEFINITIVO: la mesa es ahora una imagen real (assets/mesa.png),
-           no un dibujo hecho con CSS. .scene-backdrop pinta esa imagen de fondo. -->
       <div class="scene-backdrop" aria-hidden="true"></div>
       <div class="scene-vignette" aria-hidden="true"></div>
 
-      <!-- ==========================================================================
-           DESACTIVADO A PEDIDO (prueba de la intro visual con la mesa real):
-           la mesa y los objetos ya NO se dibujan con CSS (nada de libros, vela,
-           llave, pluma ni tintero generados por código): todo eso ahora está
-           "horneado" dentro de la foto assets/mesa.png. Se deja el bloque
-           comentado, sin borrar, para poder recuperarlo fácilmente si en algún
-           momento se quisiera volver a un escenario 100% dibujado con CSS.
-      <div class="desk-scene" id="deskScene" aria-hidden="true">
-        <span class="desk-surface"></span>
-        <span class="desk-object desk-object--book1"></span>
-        <span class="desk-object desk-object--book2"></span>
-        <span class="desk-object desk-object--quill">
-          <span class="quill-feather"></span>
-          <span class="quill-inkwell"></span>
-        </span>
-        <span class="desk-object desk-object--candle">
-          <span class="candle-flame"></span>
-        </span>
-        <span class="desk-object desk-object--key"></span>
-        <span class="desk-object desk-object--coin"></span>
-      </div>
-      ========================================================================== -->
 
-      <!-- Luz cálida adicional (aditiva) que refuerza la sensación de que la vela
-           real de la foto es la que se acaba de encender. Su posición apunta a
-           las coordenadas de la vela dentro de assets/mesa.png (ver --candle-x/
-           --candle-y en styles.css). -->
       <div class="scene-light" id="sceneLight" aria-hidden="true"></div>
 
-      <!-- Máscara de revelado: pantalla negra que, en el estado "lighting", se abre
-           progresivamente desde el punto de la vela hacia el resto de la mesa
-           (ver #sceneReveal en script.js). Reemplaza al viejo .intro-veil, que
-           solo hacía un fundido plano de opacidad de toda la imagen. -->
       <div class="scene-reveal" id="sceneReveal" aria-hidden="true"></div>
 
-      <!-- ==========================================================================
-           DESACTIVADO: viejo velo negro de fundido plano (opacity 0→1 de toda la
-           escena). Se reemplazó por #sceneReveal (revelado localizado desde la
-           vela). Se conserva comentado por si se necesita comparar o volver atrás.
-      <div class="intro-veil" id="introVeil" aria-hidden="true"></div>
-      ========================================================================== -->
 
-      <div class="envelope-stage" id="envelopeStage">
+      <div
+        class="envelope-stage"
+        id="envelopeStage"
+        tabindex="0"
+        role="button"
+        aria-label="Acercar la carta sellada"
+        aria-disabled="true"
+      >
 
-        <!-- SOBRE DEFINITIVO: ahora es la foto real assets/sobre.png (ya no un
-             sobre dibujado con divs/triángulos/CSS). Sobre esa imagen van DOS
-             elementos HTML independientes —la inscripción y el sello—, pero
-             los TRES (imagen + texto + sello) viven dentro de un mismo
-             contenedor: .envelope-visual. El único escalado de acercamiento
-             sigue aplicándose a .envelope-stage (ver styles.css, sin tocar);
-             como .envelope-visual es un único bloque adentro, ese escalado
-             alcanza a la imagen, al texto y al sello al mismo tiempo y en la
-             misma proporción — nunca se escala cada uno por separado. -->
         <div class="envelope-visual" id="envelopeVisual">
 
           <img
@@ -364,20 +309,8 @@
             draggable="false"
           />
 
-          <!-- Inscripción DENTRO del sobre, en la zona superior de la solapa,
-               centrada. Tipografía manuscrita/caligráfica (ver --font-hand y
-               .envelope-inscription en styles.css). -->
           <p class="envelope-inscription">Para la Emperatriz Ardilla</p>
 
-          <!-- Sello de lacre, tocable más adelante. NOTA: assets/sello.png es
-               el sello DEFINITIVO (zorro y ardilla) y se usa tal cual, a
-               pantalla completa del botón: no hay ningún fallback de
-               texto/letra si la imagen no carga (ver seal-emblem en
-               styles.css). Centrado donde termina la punta de la solapa de
-               assets/sobre.png (ver .seal en styles.css). El sello sigue sin
-               ser clickeable en esta etapa (atributo disabled +
-               pointer-events:none mientras no se llegue al estado "sealed",
-               que todavía no ocurre). -->
           <button type="button" class="seal" id="sealBtn" aria-label="Romper el sello y abrir la carta" disabled>
             <span class="seal-wax">
               <img
@@ -397,67 +330,66 @@
 
         </div>
 
-        <!-- ==========================================================================
-             DESACTIVADO A PEDIDO: el sobre construido enteramente con divs/CSS
-             (cuerpo, solapa con dos caras, cavidad interior, hoja asomando) ya
-             NO se usa: fue reemplazado por la foto real assets/sobre.png
-             dentro de .envelope-visual (arriba). Se conserva completo, sin
-             borrar, para poder recuperarlo si en el futuro hiciera falta un
-             sobre 100% dibujado con CSS. Los ids duplicados de acá abajo
-             (sealBtn, sealEmblem) no generan conflicto porque este bloque
-             entero es un comentario HTML: el navegador no lo interpreta.
-             OJO al retomar las fases de apertura (lifting en adelante): esas
-             reglas de styles.css todavía apuntan a esta estructura vieja
-             (.envelope, .envelope-flap, .letter-peek); van a necesitar
-             reescribirse contra .envelope-visual, y probablemente
-             rediseñarse por completo, ya que la solapa ahora es parte fija de
-             la foto (no hay una .envelope-flap real que pueda "abrirse" por
-             separado).
-
-        <div class="envelope" id="envelope">
-
-          <div class="envelope-cavity" aria-hidden="true"></div>
-
-          <div class="letter-peek" id="letterPeek" aria-hidden="true">
-            <span class="letter-peek-mark">✦</span>
-          </div>
-
-          <div class="envelope-body">
-            <div class="envelope-grain" aria-hidden="true"></div>
-            <p class="envelope-inscription">Para la Emperatriz Ardilla</p>
-          </div>
-
-          <div class="envelope-flap" id="envelopeFlap">
-            <span class="flap-face flap-face--front"></span>
-            <span class="flap-face flap-face--back"></span>
-          </div>
-
-          <button type="button" class="seal" id="sealBtn" aria-label="Romper el sello y abrir la carta" disabled>
-            <span class="seal-wax">
-              <img
-                data-src="assets/sello.png"
-                alt=""
-                class="seal-emblem"
-                id="sealEmblem"
-                draggable="false"
-              />
-              <span class="seal-engrave" aria-hidden="true"></span>
-              <span class="seal-crack seal-crack--a" aria-hidden="true"></span>
-              <span class="seal-crack seal-crack--b" aria-hidden="true"></span>
-              <span class="seal-crack seal-crack--c" aria-hidden="true"></span>
-            </span>
-            <span class="seal-glow" aria-hidden="true"></span>
-          </button>
-
-        </div>
-        ========================================================================== -->
 
       </div>
 
-      <!-- Indicación de que se puede tocar el sello: visible mientras se
-           espera el toque (estado "sealed"). Se activa por CSS
-           (body[data-state="sealed"] .tap-hint, ver styles.css) — sin
-           depender de que JS le agregue/saque estilos a mano. -->
+      <div
+        class="box-stage"
+        id="boxStage"
+        tabindex="0"
+        role="button"
+        aria-label="Abrir la caja de cartas"
+        aria-disabled="true"
+      >
+        <img
+          class="box-art"
+          id="boxArt"
+          src="assets/caja-cerrada.png"
+          alt=""
+          draggable="false"
+        />
+
+        <button
+          type="button"
+          class="box-cards-hotspot"
+          id="boxCardsHotspot"
+          aria-label="Tocar las cartas y ver el índice de capítulos"
+          disabled
+        ></button>
+        <span class="box-cards-hint" id="boxCardsHint" aria-hidden="true">Toca las cartas</span>
+      </div>
+
+      <button
+        type="button"
+        class="back-link back-link--box"
+        id="boxBackToDesk"
+        aria-label="Volver a la mesa principal"
+      >‹ Volver a la mesa</button>
+
+      <div class="box-index" id="boxIndex" aria-hidden="true">
+        <button type="button" class="back-link back-link--index" id="boxIndexBack">‹ Volver a la caja</button>
+
+        <div class="box-index-sheet">
+          <span class="box-scroll-roll box-scroll-roll--left" aria-hidden="true"></span>
+          <span class="box-scroll-roll box-scroll-roll--right" aria-hidden="true"></span>
+          <div class="box-index-scroll">
+          <header class="box-index-header">
+            <p class="box-index-title">Hasta Encontrarnos</p>
+            <p class="box-index-subtitle">Cartas desde Rainbowland</p>
+            <div class="box-index-ornament" aria-hidden="true">❦</div>
+          </header>
+
+          <div class="box-index-pages" id="boxIndexPages"></div>
+
+          <nav class="box-index-pager" id="boxIndexPager" aria-label="Páginas del índice">
+            <button type="button" class="box-index-arrow" id="boxIndexPrev" aria-label="Página anterior">‹</button>
+            <span class="box-index-pager-label" id="boxIndexPagerLabel">Página I de III</span>
+            <button type="button" class="box-index-arrow" id="boxIndexNext" aria-label="Página siguiente">›</button>
+          </nav>
+          </div>
+        </div>
+      </div>
+
       <div class="tap-hint" id="tapHint" aria-hidden="true">
         <p class="tap-hint-text">Toca el sello para abrir la carta</p>
         <span class="tap-hint-mark" aria-hidden="true">✦</span>
@@ -467,26 +399,24 @@
 
     </section>
 
-    <!-- ================= PÁGINA DE LECTURA: PRÓLOGO PAGINADO ================= -->
+    <button type="button" class="back-link back-link--prologue" id="prologueBackToDesk" aria-label="Volver a la mesa principal">‹ Volver a la mesa</button>
+
     <main class="reading" id="reading" aria-hidden="true">
       <div class="reading-scroll">
 
-        <!-- JS genera aquí todas las hojas necesarias -->
         <div class="pages" id="pages"></div>
 
-        <!-- Fuente invisible del prólogo. No se muestra directamente. -->
         <div id="prologoSource" hidden>
 <h1 class="story-title">Donde comienzan las historias que parecían haber terminado</h1>
 
   <div class="story-divider" aria-hidden="true">❦</div>
 
 
-
-  <p><span class="capitular">H</span>ay historias que comienzan con un encuentro. Otras comienzan con una despedida. Esta comienza mucho después de ambas cosas.</p>
+<p><span class="capitular">H</span>ay historias que comienzan con un encuentro. Otras comienzan con una despedida. La nuestra comienza mucho después de ambas cosas.</p>
 
   <p>En algún lugar más allá de las montañas que sostienen el cielo, cruzando los bosques donde los árboles susurran secretos y siguiendo un camino que desaparece cada vez que alguien intenta dibujarlo en un mapa, existe un reino llamado <strong>Rainbowland</strong>.</p>
 
-  <p>Dicen que allí los arcoíris no aparecen después de las tormentas. Nacen de la tierra. Pequeños al principio, casi invisibles, hasta que comienzan a trepar lentamente hacia el cielo.</p>
+  <p>Dicen que allí los arcoíris no aparecen después de las tormentas sino que nacen de la tierra. Pequeños al principio, casi invisibles, hasta que comienzan a trepar lentamente hacia el cielo.</p>
 
   <p>Dicen también que algunas noches las estrellas descienden tanto que pueden tocarse desde las torres del castillo y que, cuando llega la primavera, ciertos árboles producen flores capaces de guardar un recuerdo durante toda la eternidad.</p>
 
@@ -494,35 +424,55 @@
 
   <p>Una pequeña Ardilla de mirada inquieta, extremadamente bella y un corazón capaz de convertir cualquier lugar en hogar.</p>
 
-  <p>Curun habría reconocido aquella mirada entre millones. Porque mucho antes de que esta historia comenzara, él había llamado a la Emperatriz de otra manera. Un nombre que no figuraba en ningún libro. Que ningún súbdito pronunciaba. Que pertenecía solamente a ellos.
+  <p>Curun habría reconocido los ojos de la Emperatriz entre millones. Porque mucho antes de que esta historia comenzara, él había llamado a la Emperatriz de otra manera. Un nombre que no figuraba en ningún libro. Que ningún súbdito pronunciaba. Que pertenecía solamente a ellos. <strong>Moi.</strong> Y ella también lo había llamado así.</p>
 
-  <p><strong>Moi.</strong> Y ella también lo había llamado así.</p>
+  <p>Curun era un zorro. Aunque decir que Curun era solamente un zorro sería como decir que un huracán es apenas un poco de viento. Curun era pícaro. Terriblemente pícaro. Un bribón, un embaucador y, según él mismo, el indiscutible Rey de los Bandidos. </p>
 
-  <p>Curun era un Zorro. Aunque sería injusto decir que era simplemente un zorro. Era pícaro, terriblemente pícaro. Podríamos llegar a decir que era un bandido, no solo un bandido común y corriente era el Rey de los Bandidos.</p>
+  <p>No había cerradura que lo detuviera, ni problema que él que no tuviera una artimaña. Si encontraba una puerta cerrada, buscaba una ventana. Si la ventana también estaba cerrada, convencía al guardia de que se la abriera. Y si no había ningún guardia... Bueno... Curun seguramente encontraría la manera de que apareciera uno.</p>
 
-  <p>Tenía una artimaña para casi cualquier problema. Si encontraba una puerta cerrada, buscaba una ventana. Si no había una ventana, convencía al guardia. Y si no existía ningún guardia, Curun probablemente inventaría uno. Porque Curun siempre se jactaba de su lema "Porque Quiero y Porque Puedo"</p>
+  <p>"Porque quiero y porque puedo" decía, como si aquello explicara perfectamente todas las cosas. Y, para Curun, las explicaba. </p>
 
-  <p>Con su astucia había escapado de situaciones imposibles. Había convencido a criaturas que juraban ser imposibles de convencer. Incluso había conseguido alguna vez que un dragón le pidiera disculpas después de intentar comérselo. Y no solo eso, sino que cuando se descuidó le robo un tesoro que tenía muy protegido para luego cambiarlo por comida. Porque Curun era así al final de su travesura, sonría de na manera que hacía brillar los ojos de su amada Ardilla, para luego compartir esa porción de torta juntos.</p>
+  <p>Gracias a su astucia había escapado de miles de problemas, engañado a criaturas que juraban ser imposibles de engañar y salido caminando tranquilamente de situaciones de las que nadie debería haber salido caminando. Una vez, incluso, un dragón intentó comérselo. Al terminar la tarde, el dragón le había pedido disculpas. Curun, por supuesto, aceptó las disculpas. También ante el primer descuido del dragón, le robó parte de su tesoro. No porque necesitara oro. Curun tenía cosas mucho más importantes que comprar, como dos buenas porciones de torta. </p>
 
-  <p>Pero existía una criatura ante la cual todas sus artimañas resultaban inútiles. Su Ardilla. Ella lo conocía demasiado. Sabía cuándo Curun tramaba algo apenas observándole los ojos. Sabía cuándo estaba preocupado aunque él dijera que estaba bien. Sabía cuándo necesitaba compañía y también cuándo necesitaba silencio.</p>
+  <p>Porque detrás de cada gran fechoría de Curun había casi siempre un propósito ridículamente pequeño. Y después de burlar guardias, escapar de monstruos o enfurecer a algún que otro dragón, regresaba junto a su amada Ardilla con aquella sonrisa suya que le hacía brillar los ojos.</p>
 
-  <p>Con ella no necesitaba ser el Zorro capaz de resolverlo todo. Podía simplemente ser Curun. Y quizás por eso la amó como la amó.
+<p>Entonces sacaba de detrás de la espalda dos porciones de torta.</p>
+
+<p>¿Preguntas?</p>
+
+<p>La Ardilla miraba la torta. Luego a Curun.</p>
+
+<p>Ninguna.</p>
+
+<p>Y Curun sonreía.</p>
+
+<p>Porque quería... Y porque podía.</p>
+
+  <p>Aunque, para ser justos. La Ardilla no necesitaba hacer preguntas.</p>
+
+  <p>Lo conocía demasiado. </p>
+
+  <p>Sabía cuando Curun tramaba algo con apenas mirarlo a los ojos. Sabía cuando estaba preocupado, aunque él dijera que estaba bien. Sabía cuando necesitaba compañia y tambien cuando necesitaba silencio.</p>
+
+  <p>Curun podía engañar  guardias, embaucar monstruos, robarles en cuestión de segundos. Pero con su Ardilla sus artimañanas no servían de nada. Porque la Ardilla no conocía al Rey de los bandidos, sino que conocía al zorro que había detrás.</p>
+
+  <p>Y quizás eso era lo que Curun amaba mas de su Ardilla.</p>
 
   <p>Durante cinco años recorrieron juntos una parte del mundo. Cinco años parecen poco cuando se escriben en una página. Pero para ellos fue una vida entera.</p>
 
-  <p>Hubieron grandes aventuras. Como cuando derrotaron juntos al Rey Chinchol... Muy famoso en la basta tierra donde vivía Curun, pero la Emperatriz logro vencerlo en un combate a muerte, dicen las viejas historias que se encontraban paseando por tierras extrañas, y la Emperatriz noto a lo lejos como el Rey chinchol junto a sus secuaces iban a emboscarlos, y ella de manera veloz, tomo un shuriken y lo lanzo con una precisión milimétrica dandole fin al Rey Chinchol y su tirano reinado. </p>
+  <p>Hubieron grandes aventuras. Como cuando derrotaron juntos al Rey Chinchol... Muy famoso en la basta tierra donde vivía Curun, pero la Emperatriz logro vencerlo en un combate a muerte, dicen las viejas historias que se encontraban paseando por tierras extrañas, y la Emperatriz noto a lo lejos algo raro entre medio de unos matorrales y si, ahí estaba el Rey chinchol junto a sus secuaces escondicos y listos para emboscarlos, y nuestra Emperatriz, de manera veloz, toma un shuriken que llevaba escondido y lo lanzó con una precisión milimétrica asestándole al Rey Chinchol y así dándole fin a su tirano reinado. </p>
 
-  <p>Hubieron risas. y de estas fueron miles y miles, tantas que hay anecdonas que haría sonreir hasta la persona mas seria... Porque si estaban juntos nada podía salir mal y todo podía salir muy mal, Porque como era de esperarse si Curun decía izquierda la Emperatriz iba a la derecha.</p>
+  <p>Hubieron risas. y de estas fueron miles y miles, tantas que hay anécdonas que haría sonreir hasta la persona mas seria... Porque si estaban juntos nada podía salir mal y todo podía salir muy mal. Porque como era de esperarse si Curun decía izquierda la Emperatriz iba a la derecha. A los pocos pasos se detenía, giraba lentamente bucando a su zorro. Curun seguía exactamente en el mismo lugar donde lo había dejado. Ahí parado y negando con la cabeza. La Ardilla sonreía, Curun intentaba no hacerlo. Pero esto nunca duraba demasiado, porque ambos sabían lo que significaba haber girado a la derecha, era hora de meterse en problemas. Curun suspiraba, despues sonreía y corría detrás de su Ardilla. Porque sí, las mejores historias de ellos, casi siempre comenzaron exactamente así. </p>
 
   <p>Hubieron discusiones, de estas algunas no tan alegres, pero ellos trataban de sacar lo mejor juntos para siempre poder solucionarlo, pero si cuentan que hubieron noches que dicho en palabras de Curun toco dormir culo con culo, porque asi eran ellos por mas enojo que tuvieran, al finalizar el día terminaban durmiendo juntos. </p>
 
-  <p>Hubieron días extraordinarios y otros en los que lo más extraordinario fue simplemente estar juntos.</p>
+  <p>Hubieron días extraordinarios y otros en los que lo más extraordinario fue simplemente estar juntos abrazados bajo la sombra de un árbol. Hasta quedarse dormidos.</p>
 
-  <p>Hubieron sueños, muchísimos. Algunos enormes. Otros tan sencillos como compartir una mesa, cocinar algo con las propias manos y descubrir que, a veces, hogar no era un lugar. simplemente era estar con la persona que hacia de un lugar, un hogar.</p>
+  <p>Hubieron sueños, muchísimos. Algunos enormes. Otros tan sencillos como compartir una mesa, cocinar algo con las propias manos y descubrir que, a veces, hogar no era un lugar. Simplemente era estar con la persona que hacia de un lugar, un hogar.</p>
 
   <p>Curun creyó haber encontrado el suyo.</p>
 
-  <p>Un 6 de septiembre los dos decidieron que querían seguir recorriendo el mundo juntos. Se prometieron un vida juntos. No como hacen quienes creen saber qué ocurrirá mañana, sino como hacen dos criaturas que, después de haberse encontrado entre millones, sienten que existe algo en la otra que inexplicablemente reconocen. Como si sus almas se hubieran conocido mucho antes que ellos.</p>
+  <p>Un 6 de septiembre los dos decidieron que querían seguir recorriendo el mundo juntos. Se prometieron un vida juntos. No como hacen quienes creen saber qué ocurrirá mañana, sino como hacen dos criaturas que, después de haberse encontrado entre millones, sienten que existe algo en la otra que inexplicablemente reconocen. Como si sus almas se hubieran conocido mucho antes que ellos. Como si ya no puede existir la vida de uno sin el otro...</p>
 
   <p>Durante mucho tiempo Curun estuvo convencido de que nada podría separarlos. Pero se equivocó.</p>
 
@@ -534,7 +484,7 @@
 
   <p>Hasta que llegó un día en que sus caminos dejaron de avanzar en la misma dirección.</p>
 
-  <p>Y entonces ocurrió algo que nadie esperaba, luego de una discusión en un triste noche, la Emperatriz desapareció.</p>
+  <p>Y entonces ocurrió algo que nadie esperaba, luego de una discusión en una triste noche, la Emperatriz desapareció.</p>
 
   <p>No solamente de la vida de Curun, desapareció de Rainbowland. Su castillo quedó en silencio, su trono, vacío. Y durante dos años nadie volvió a verla.</p>
 
@@ -546,13 +496,13 @@
 
   <p>Los días continuaron, pasaron los amaneceres, luego los atarderes y finalizaban las noches sosteniendo de la mano a nuevos amaneceres. Llegaron inviernos, después primaveras. Curun trabajó, viajó, solucionó problemas, se metió en algunos otros. De a poco volvió a utilizar sus artimañas.</p>
 
-  <p>Ese Zorro astuto siguió siendo Curun. O al menos eso pensaban quienes lo conocían. Porque había algo que nadie sabía. Algunas noches, cuando todo quedaba en silencio y ya no había nadie a quien engañar, ni siquiera a sí mismo, Curun levantaba la mirada hacia el horizonte. 
+  <p>Ese Zorro astuto siguió siendo Curun. O al menos eso pensaban quienes lo conocían. Porque había algo que nadie sabía. Algunas noches, cuando todo quedaba en silencio y ya no había nadie a quien engañar, ni siquiera a sí mismo, Curun levantaba la mirada hacia el horizonte.
 
   Buscando entre la oscuridad de la noche el camino hacia su amor, hacia su otra mitad. Y siempre terminaba pronunciando la misma palabra. Muy bajito. Como si temiera que el viento pudiera llevársela.</p>
 
   <p>—Moi... Mi dulce y tierna Moi</p>
 
-  <p>Dos años. más de setecientos amaneceres. Para algunos era demasiado tiempo pero para Curun, el tiempo jamás había sido una respuesta. Era solamente distancia y las distancias podían recorrerse.</p>
+  <p>Dos años, más de setecientos amaneceres. Para algunos era demasiado tiempo pero para Curun, el tiempo jamás había sido una respuesta. Era solamente distancia y las distancias podían recorrerse.</p>
 
   <p>Pero durante aquellos dos años comenzó a comprender algo. Encontrarla no podía significar regresar porque no existía ningún lugar al cual regresar.</p>
 
@@ -596,7 +546,7 @@
 
   <p><strong>«Si todavía deseas encontrarla, tendrás que aprender a buscarla de nuevo.»</strong></p>
 
-  <p>Curun dejó de respirar durante un instante. Leyó aquellas palabras después otra vez y una tercera.</p>
+  <p>Curun dejó de respirar durante un instante. Leyó aquellas palabras, después otra vez y una tercera.</p>
 
   <p>Entonces dio vuelta el papel, en el reverso había un símbolo o mejor dicho tres, un cuadrado, otro cuadrado y un triángulo. Un símbolo que no veía desde hacía dos años. </p>
 
@@ -607,8 +557,8 @@
   <p>Tenía muchas preguntas. Y absolutamente ninguna respuesta. Curiosamente, eso lo hizo sonreír.</p>
 
   <p>Porque Curun siempre había sido muy bueno encontrando respuestas. </p>
-    
-  <p>Aquella noche entró en su casa y abrió un viejo armario. En el fondo encontró un bolso cubierto de polvo. El mismo que había utilizado muchos años atrás para recorrer el mundo.</p>
+
+  <p>Aquella noche entró a su casa y abrió un viejo armario. Del fondo Agarró un bolso cubierto de polvo. El mismo que había utilizado muchos años atrás para recorrer el mundo.</p>
 
   <p>Lo dejó sobre la mesa, guardó algunas cosas, quitó otras. Preparó provisiones y cuando terminó, colocó cuidadosamente su cuaderno donde dejaría sus notas de su viaje y sujeto al cuaderno la rosa encima de todo. </p>
 
@@ -622,13 +572,13 @@
 
   <p>A la mañana siguiente partió antes de que saliera el sol. Su primer destino sería Rainbowland.</p>
 
-  <p>Allí encontraría un castillo sin Emperatriz. Un trono que llevaba dos años vacío. 
+  <p>Allí encontraría un castillo sin Emperatriz. Un trono que llevaba dos años vacío.
 
   <p>Encontraría aldeanos convencidos de que debía regresar a casa. Otros que asegurarían saber dónde estaba ella.</p>
 
   <p>Encontraría verdades, mentiras, recuerdos.</p>
 
-  <p>Y una pregunta que terminaría cambiando el sentido completo de su viaje.Pero Curun todavía no sabía nada de aquello.</p>
+  <p>Y una pregunta que terminaría cambiando el sentido completo de su viaje. Pero Curun todavía no sabía nada de aquello.</p>
 
   <p>Tampoco sabía que el camino que acababa de comenzar lo llevaría mucho más lejos de lo que imaginaba.</p>
 
@@ -686,7 +636,7 @@
 
   <p>Curun acomodó su bolso sobre el hombro. Delante de él esperaba un mundo entero.</p>
 
-  <p>En algún lugar de aquel mundo estaba la Emperatriz quizas diferente a la que Curun conoció, quizas una desconocida para Curun. Pero tambien por otro lado, inexplicablemente familiar.</p>
+  <p>En algún lugar de aquel mundo estaba la Emperatriz quizas diferente a la que Curun conoció, quizas una desconocida para Curun. Pero Curun sabía que, si alguna vez volvía a mirarla a los ojos, alguna parte de él todavía sabría que era ella.</p>
 
   <p>Curun dio el primer paso, después otro. El tiempo podría intentar detenerlo, la distancia podría intentar cansarlo. El mundo podría decirle una y mil veces que algunas historias solamente tienen un final.</p>
 
@@ -704,26 +654,35 @@
 
   <p>Así como Curun aprendió a esperar, ahora nos toca a nosotros, porque toda gran historia no puede contarse de un solo tirón. Y esta no solo es una gran historia, es la última aventura del intrépido Curun, y su alma gemela La Magnánima Emperatriz</p>
 
+
   <div class="rainbow-countdown" style="margin:2.2rem 0 0;text-align:center;font-family:Georgia,serif;color:inherit;">
     <div style="font-style:italic;margin-bottom:.65rem;">El viaje comienza en...</div>
     <div class="rainbow-countdown-value" style="font-weight:700;font-size:1.08em;letter-spacing:.02em;">-- días · -- horas · -- minutos · -- segundos</div>
     <div style="margin-top:.7rem;font-size:3.15em;">🌹</div>
   </div>
-  
+
         </div>
 
       </div>
     </main>
 
+    <main class="chapter-reading" id="chapterReading" aria-hidden="true">
+      <button type="button" class="back-link back-link--chapter" id="chapterReadingBack">‹ Volver a los capítulos</button>
+      <div class="reading-scroll">
+        <div class="pages" id="chapterPages"></div>
+      </div>
+    </main>
 
   </div>
 
-  <!-- Música de fondo de prueba: comienza desde la pantalla negra y queda en loop. -->
   <audio id="musicaFondo" src="assets/musica-fondo.mp3" preload="auto" autoplay loop></audio>
 
-  <!-- Sonidos opcionales: si los archivos no existen, la app sigue funcionando -->
+  <audio id="musicaCapitulos" src="assets/musica-capitulos.mp3" preload="auto" loop></audio>
+
   <audio id="sndSello" src="assets/sello.mp3" preload="none"></audio>
   <audio id="sndPapel" src="assets/papel.mp3" preload="none"></audio>
+
+  <script src="tracking.js"></script>
 
   <script src="script.js"></script>
 
@@ -732,7 +691,6 @@
 (function () {
   "use strict";
 
-  // Sábado 12 de septiembre de 2026, 15:00, hora de Argentina (UTC-03:00).
   const destino = new Date("2026-09-12T15:00:00-03:00").getTime();
 
   function actualizarContador() {
