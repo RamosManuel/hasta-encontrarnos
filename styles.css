@@ -1761,3 +1761,26 @@ body[data-state="reading"] #prologueBackToDesk {
     line-height: 1.05;
   }
 }
+
+@media (max-width: 600px) {
+  body[data-state="dark"] .envelope-stage,
+  body[data-state="lighting"] .envelope-stage,
+  body[data-state="desk"] .envelope-stage {
+    transform: translate(0, 14vh) scale(.27) rotate(-6deg);
+  }
+
+  body[data-state="boxApproaching"] .envelope-stage,
+  body[data-state="boxOpen"] .envelope-stage {
+    transform: translate(0, 14vh) scale(.27) rotate(-6deg);
+  }
+
+  .box-stage {
+    width: 52vw;
+    transform: translate(-50%, -50%) translate(-8vw, -7vh) scale(.68) rotate(0deg);
+  }
+
+  body[data-state="boxApproaching"] .box-stage,
+  body[data-state="boxOpen"] .box-stage {
+    transform: translate(-50%, -50%) translate(6vw, 4vh) scale(1.65) rotate(0deg);
+  }
+}
